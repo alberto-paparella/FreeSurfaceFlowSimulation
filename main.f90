@@ -1,0 +1,4 @@
+PROGRAM TEST
+    IMPLICIT NONE
+    PRINT *, ' Hello World '
+END PROGRAM TEST
