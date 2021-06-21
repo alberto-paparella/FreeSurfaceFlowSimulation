@@ -41,12 +41,14 @@ PROGRAM FS2D
     TestName = 'Gaussian_test'
     !
     IMAX   = 500    ! Max index for x coordinates
-    JMAX   = 500    ! Max index for y coordinates
     xL     = -0.5
     xR     = 0.5
-    yB     = -0.5   !
-    yU     = 0.5    !
-    s      = 0.1    !
+#ifdef FS2D
+    !JMAX   = 500    ! Max index for y coordinates
+    !yB     = -0.5   !
+    !yU     = 0.5    !
+    !s      = 0.1    !
+#endif
     !
     time   = 0.0
     tend   = 0.1
@@ -76,9 +78,11 @@ PROGRAM FS2D
     x(1)  = xL
     
     !
-    dy    = (yU - yB) / REAL(IMAX)  !
-    dy    = dy**2                   !
-    y(1)  = yB                      !
+#ifdef FS2D
+    !dy    = (yU - yB) / REAL(IMAX)  !
+    !dy    = dy**2                   !
+    !y(1)  = yB                      !
+#endif
     !
     
     ! We decided to use two separates dimensions, IMAX and JMAX, for x and y coords
@@ -87,10 +91,12 @@ PROGRAM FS2D
       x(i+1) = x(i) + dx
       xb(i)  = x(i) + dx/2.
     ENDDO
-    DO j = 1, JMAX
-      y(j+1) = y(j) + dy
-      yb(j)  = y(j) + dy/2.
-    ENDDO
+#ifdef FS2D
+    !DO j = 1, JMAX
+    !  y(j+1) = y(j) + dy
+    !  yb(j)  = y(j) + dy/2.
+    !ENDDO
+#endif
     !
     !---------------------------------------- 
     !---------------------------------------- 
@@ -101,40 +107,62 @@ PROGRAM FS2D
     !
     ! 2.1) Free surface elevation (barycenters)
     !
+    
+#ifdef FS2D
+    !DO i = 1, IMAX
+    !  DO j = 1, JMAX
+    !    ! Gaussian profile
+    !    eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( x(i)**2 + y(j)**2 )) ! x or xb ?
+    !  ENDDO
+    !ENDDO
+#else
     DO i = 1, IMAX
-      DO j = 1, JMAX
-        ! Gaussian profile
-        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( x(i)**2 + y(j)**2 )) ! x or xb ?
-      ENDDO
-    ENDDO  
+      ! Gaussian profile
+      eta(i) = 1.0 + EXP(-500.0*((xb(i)-0.5)**2)/4.)
+    ENDDO 
+#endif
     !
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !
-    DO i = 1, IMAX+1
-      DO j = 1, JMAX+1
-        u(i, j) = 0.0   ! fluid at rest
-        h(i, j) = 0.0   ! zero bottom elevation
-        v(i, j) = 0.0   !
-      ENDDO
-    ENDDO
-    
-    
-    
-    
+#ifdef FS2D
+    !DO i = 1, IMAX+1
+    !  DO j = 1, JMAX+1
+    !    u(i, j) = 0.0   ! fluid at rest
+    !    b(i, j) = 0.0   ! zero bottom elevation
+    !    v(i, j) = 0.0   !
+    !  ENDDO
+    !ENDDO
     !
     ! Total water depth
     !
-    H(1,1)    = MAX( 0.0, h(1,1)+eta(1,1) )
-    H(IMAX+1,JMAX+1) = MAX( 0.0, h(IMAX+1,JMAX+1)+eta(IMAX,JMAX) )
+    !H(1,1)    = MAX( 0.0, b(1,1)+eta(1,1) )
+    !H(IMAX+1,JMAX+1) = MAX( 0.0, b(IMAX+1,JMAX+1)+eta(IMAX,JMAX) )
+    !DO i = 2, IMAX
+    !  DO j = 2, JMAX
+    !    H(i,j) = MAXVAL( (/ 0.0, b(i,j)+eta(i-1,j-1), b(i,j)+eta(i,j) /) )
+    !  ENDDO
+    !ENDDO  
+    !
+    !CALL DataOutput(0)  ! plot initial condition
+    !tio = tio + dtio
+    !
+#else
+    DO i = 1, IMAX+1
+      u(i) = 0.0   ! fluid at rest
+      b(i) = 0.0   ! zero bottom elevation
+    ENDDO
+    !
+    ! Total water depth
+    !
+    H(1)      = MAX( 0.0, b(1)+eta(1)         )
+    H(IMAX+1) = MAX( 0.0, b(IMAX+1)+eta(IMAX) )
     DO i = 2, IMAX
-      DO j = 2, JMAX
-        H(i,j) = MAXVAL( (/ 0.0, h(i,j)+eta(i-1,j-1), h(i,j)+eta(i,j) /) )
-      ENDDO
+      H(i) = MAXVAL( (/ 0.0, b(i)+eta(i-1), b(i)+eta(i) /) )
     ENDDO  
     !
     CALL DataOutput(0)  ! plot initial condition
     tio = tio + dtio
-    !
+#endif
     !---------------------------------------- 
     !---------------------------------------- 
     !
@@ -252,7 +280,7 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
     WRITE(*,'(a)') ' | ====================================================== | '
     !
-END PROGRAM FS1D 
+END PROGRAM FS2D 
   
 SUBROUTINE matop1D(Ap,p,N) 
     !------------------------------------------------------------!
