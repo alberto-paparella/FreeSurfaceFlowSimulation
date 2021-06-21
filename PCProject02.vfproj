@@ -50,5 +50,6 @@
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
 		<File RelativePath=".\IO.f90"/>
 		<File RelativePath=".\LinSystem.f90"/>
-		<File RelativePath=".\main.f90"/></Filter></Files>
+		<File RelativePath=".\main.f90"/>
+		<File RelativePath=".\VarDef.f90"/></Filter></Files>
 	<Globals/></VisualStudioProject>

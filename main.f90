@@ -28,7 +28,7 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' | '
     !
 #ifdef CGM
-    WRITE(*,'(a)') ' | Solver: conjugate gradient method. '
+    WRITE(*,'(a)') ' | Soluzione con il metodo del gradiente coniugato. '
 #else
     WRITE(*,'(a)') ' | Solver: Thomas algorithm. '
 #endif
