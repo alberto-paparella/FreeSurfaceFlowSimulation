@@ -28,4 +28,33 @@ MODULE VarDef_mod
     CHARACTER(LEN=200)  :: TestName
     real                :: tio, dtio
     !
+    
+SUBROUTINE Allocate_Var
+    IMPLICIT NONE
+    
+    ALLOCATE( x(IMAX+1), Fu(IMAX+1) )
+    x  = 0.
+    xb = 0.
+    
+    ALLOCATE( u(IMAX+1), Fu(IMAX+1) )
+    ALLOCATE( H(IMAX+1), b(IMAX+1)  )
+    ALLOCATE( eta(IMAX)             )
+    u   = 0.
+    Fu  = 0.
+    H   = 0.
+    b   = 0.
+    eta = 0.
+    
+END SUBROUTINE Allocate_Var
+
+SUBROUTINE Deallocate_Var
+    IMPLICIT NONE
+    DEALLOCATE( x, xb )
+    ALLOCATE( u(IMAX+1), Fu(IMAX+1) )
+    ALLOCATE( H(IMAX+1), b(IMAX+1)  )
+    ALLOCATE( eta(IMAX)             )
+END SUBROUTINE Deallocate_Var
+    
+    
+    
 END MODULE VarDef_mod
