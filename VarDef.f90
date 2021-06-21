@@ -4,7 +4,10 @@ MODULE VarDef_mod
     
     ! Geometry
     INTEGER             :: IMAX     ! total number of cells
-    REAL                :: xL, xR   ! domain boundaries
+    INTEGER             :: JMAX     ! Max index for y coordinates
+    REAL                :: xL, xR   ! domain boundaries for axis x
+    REAL                :: yB,yU    ! domain boundaries for axis y
+    real                :: s        ! initial condition
     REAL, ALLOCATABLE   :: x(:)     ! vertex coords     (where u is defined)
     REAL, ALLOCATABLE   :: xb(:)    ! barycenter coords (where eta is defined)
     REAL                :: dx, dx2  ! mesh spacing
@@ -37,12 +40,16 @@ SUBROUTINE Allocate_Var
     IMPLICIT NONE
     
     ALLOCATE( x(IMAX+1), xb(IMAX+1) )
+    ALLOCATE( x(JMAX+1), xb(JMAX+1) )
     x  = 0.
     xb = 0.
     
     ALLOCATE( u(IMAX+1), Fu(IMAX+1) )
+    ALLOCATE( u(JMAX+1), Fu(JMAX+1) )
     ALLOCATE( H(IMAX+1), b(IMAX+1)  )
-    ALLOCATE( eta(IMAX)             )
+    ALLOCATE( H(JMAX+1), b(JMAX+1)  )
+    ALLOCATE( eta(IMAX)   )
+     ALLOCATE( eta(JMAX)   )
     !ALLOCATE( eta(IMAX), rhs(IMAX)  )
     u   = 0.
     Fu  = 0.
