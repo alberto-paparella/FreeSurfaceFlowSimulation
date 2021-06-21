@@ -15,7 +15,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Debug|x64">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions="PARALLEL CGM" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug" UseWindowsLibs="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions="PARALLEL; CGM" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug" UseWindowsLibs="true"/>
 				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(MSMPI_LIB64)" IgnoreDefaultLibraryNames="libcmt.lib" GenerateDebugInformation="true" SubSystem="subSystemConsole" AdditionalDependencies="msmpi.lib msmpifmc.lib"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64" HeaderFileName="$(InputName).h"/>
@@ -35,7 +35,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|x64">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions="PARALLEL CGM" RuntimeLibrary="rtMultiThreadedDebug" UseWindowsLibs="true"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Preprocess="preprocessYes" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions="PARALLEL; CGM" RuntimeLibrary="rtMultiThreadedDebug" UseWindowsLibs="true"/>
 				<Tool Name="VFLinkerTool" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(MSMPI_LIB64)" IgnoreDefaultLibraryNames="libcmt.lib" SubSystem="subSystemWindows" AdditionalDependencies="msmpi.lib msmpifmc.lib"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64" HeaderFileName="$(InputName).h"/>
@@ -50,6 +50,6 @@
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
 		<File RelativePath=".\IO.f90"/>
 		<File RelativePath=".\LinSystem.f90"/>
-		<File RelativePath=".\main.F90"/>
+		<File RelativePath=".\main.f90"/>
 		<File RelativePath=".\VarDef.f90"/></Filter></Files>
 	<Globals/></VisualStudioProject>

@@ -18,7 +18,7 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: eta(:)   ! pressure
     REAL, ALLOCATABLE   :: H(:)     ! total wather depth
     REAL, ALLOCATABLE   :: b(:)     ! bottom elevation
-    !REAL, ALLOCATABLE   :: rhs(:)   ! rhs of the pressure system
+    !REAL, ALLOCATABLE   :: rhs(:)  ! rhs of the pressure system
     REAL                :: nu       ! kinematic viscosity coefficient
     
     REAL                :: time

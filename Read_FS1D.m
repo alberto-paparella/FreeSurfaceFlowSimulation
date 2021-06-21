@@ -5,10 +5,10 @@ close all
 clc
 
 % Open file
-FileID = fopen('Gaussian-0000.dat');
+FileID = fopen('Gaussian_test-0000.dat');
 
 % Read number of cells
-IMAX = fscanf(FileID,'%d \n',1); 
+IMAX = fscanf(FileID,'%s \n',1); 
 
 % Read data
 x   = fscanf(FileID,'%f \n',IMAX);

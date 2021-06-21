@@ -118,7 +118,7 @@ PROGRAM FS2D
 #else
     DO i = 1, IMAX
       ! Gaussian profile
-      eta(i) = 1.0 + EXP(-500.0*((xb(i)-0.5)**2)/4.)
+      eta(i) = 1.0 + EXP(-500.0*((xb(i))**2)/4.)
     ENDDO 
 #endif
     !
