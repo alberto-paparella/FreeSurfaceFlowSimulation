@@ -17,10 +17,9 @@ PROGRAM FS2D
     USE VarDef_mod
     IMPLICIT NONE
     !------------------------------------------------------------!
-    INTEGER            :: i, n
-    INTEGER            :: j         ! 2D
+    INTEGER            :: i, j, n
     REAL               :: umax, au, s0, ct
-    REAL, ALLOCATABLE  :: av(:), bv(:), cv(:), rhs(:)
+    REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:), rhs(:)
     !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
     !
@@ -65,9 +64,9 @@ PROGRAM FS2D
     CALL Allocate_Var  ! allocate all variables
     !
     ! vectors for assembling the tridiagonal linear system
-    ALLOCATE( av(IMAX)  )  
-    ALLOCATE( bv(IMAX)  )
-    ALLOCATE( cv(IMAX)  )
+    ALLOCATE( avec(IMAX)  )  
+    ALLOCATE( bvec(IMAX)  )
+    ALLOCATE( cvec(IMAX)  )
     ALLOCATE( rhs(IMAX) )
     !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
     !
@@ -103,21 +102,13 @@ PROGRAM FS2D
     !
     ! 2.1) Free surface elevation (barycenters)
     !
-    !---------------------------------------------
-    ! 1D solution, for reference
-    !---------------------------------------------
-    !DO i = 1, IMAX
-      ! Gaussian profile
-      !eta(i) = 1.0 + EXP(-500.0*((xb(i))**2)/4.)
-    !ENDDO
-    !---------------------------------------------
-    ! 2D solution
-    !---------------------------------------------
-    DO i = 1, IMAX      ! 2D
-      DO j = 1, JMAX    ! 2D
+    DO i = 1, IMAX
+      DO j = 1, JMAX
         ! Gaussian profile
-        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( x(i)**2 + y(j)**2 )) ! 2D, x or xb ?
-        !eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( xb(i)**2 + yb(j)**2 )) ! 2D, alternative, more similar to teacher solution
+        ! Note: it is correct to use xb and yb instead of x and y because x and y represents
+        ! the vertex coords for u and v, while xb and yb represents the barycenter coords
+        ! for eta.
+        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( xb(i)**2 + yb(j)**2 ))
       ENDDO
     ENDDO
     !---------------------------------------------
@@ -125,47 +116,47 @@ PROGRAM FS2D
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !
     !---------------------------------------------
-    ! 1D solution, for reference
-    !---------------------------------------------
-    !DO i = 1, IMAX
-      ! Gaussian profile
-      !eta(i) = 1.0 + EXP(-500.0*((xb(i))**2)/4.)
-    !ENDDO
-    !DO i = 1, IMAX+1
-    !  u(i) = 0.0   ! fluid at rest
-    !  b(i) = 0.0   ! zero bottom elevation
-    !ENDDO
-    !
-    ! Total water depth
-    !
-    !H(1)      = MAX( 0.0, b(1)+eta(1)         )
-    !H(IMAX+1) = MAX( 0.0, b(IMAX+1)+eta(IMAX) )
-    !DO i = 2, IMAX
-    !  H(i) = MAXVAL( (/ 0.0, b(i)+eta(i-1), b(i)+eta(i) /) )
-    !ENDDO  
-    !
-    !CALL DataOutput(0)  ! plot initial condition
-    !tio = tio + dtio
-    !---------------------------------------------
-    ! 2D solution
-    !---------------------------------------------
-    DO i = 1, IMAX+1
-      DO j = 1, JMAX+1
-        u(i, j) = 0.0   ! fluid at rest
-        b(i, j) = 0.0   ! zero bottom elevation
-        v(i, j) = 0.0   !
+    ! Note: u is of dimension (IMAX + 1) * JMAX, while v is of dimension IMAX * (JMAX + 1)
+    ! Note: it is convenient to have two matrixes for b now, bu and bv
+    ! TODO think about a solution using a single matrix, for eample using a matrix of dimensions IMAX*2+1 * JMAX*2+1
+    !      and indices for both axis with step 2 (note the sparse form of the matrix, is it possible a better solution?)
+    ! By the way, at the moment I think the 2 vectors solution is faster and also lighter in memory terms
+    ! Same valuation values for H
+    DO i = 1, IMAX + 1
+      DO j = 1, JMAX
+        u(i, j)  = 0.0      ! fluid at rest
+        bu(i, j) = 0.0      ! zero bottom elevation
+      ENDDO
+    ENDDO
+    DO i = 1, IMAX
+      DO j = 1, JMAX + 1
+        v(i, j)  = 0.0      ! fluid at rest
+        bv(i, j) = 0.0      ! zero bottom elevation
       ENDDO
     ENDDO
     !
     ! Total water depth
     !
-    H(1,1)    = MAX( 0.0, b(1,1)+eta(1,1) )
-    H(IMAX+1,JMAX+1) = MAX( 0.0, b(IMAX+1,JMAX+1)+eta(IMAX,JMAX) )
+    DO j = 1, JMAX
+      ! Initialize first and last columns for Hu
+      Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+      Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
+    ENDDO
+    DO i = 1, IMAX
+      ! Initialize first and last rows for Hv
+      Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+      Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
+    ENDDO
     DO i = 2, IMAX
-      DO j = 2, JMAX
-        H(i,j) = MAXVAL( (/ 0.0, b(i,j)+eta(i-1,j-1), b(i,j)+eta(i,j) /) )
+      DO j = 1, JMAX
+        Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
       ENDDO
-    ENDDO  
+    ENDDO
+    DO j = 2, JMAX
+      DO i = 1, IMAX
+        Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+      ENDDO
+    ENDDO
     !
     CALL DataOutput(0)  ! plot initial condition
     tio = tio + dtio
@@ -229,7 +220,7 @@ PROGRAM FS2D
       DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            rhs(i) = eta(i,j) - dt/dx * ( H(i+1,j+1)*Fu(i+1,j+1) - H(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            rhs(i) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
           ENDDO
           !CALL CG(IMAX,eta,rhs)
           CALL CG(IMAX,eta(:,j),rhs) ! 2D
@@ -240,27 +231,27 @@ PROGRAM FS2D
       !
       ! THOMAS ALGORITHM
       !
-      ct = g*dt**2/dx2  ! temporary coefficient
+      !ct = g*dt**2/dx2  ! temporary coefficient
       !
-      DO i = 1, IMAX
-        IF(i.EQ.1) THEN
-          av(i)  = 0.
-          bv(i)  = 1. + ct * ( H(i+1) + 0.0 )
-          cv(i)  = - ct * H(i+1)
-          rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-        ELSEIF(i.EQ.IMAX) THEN  
-          av(i)  = - ct * H(i)
-          bv(i)  = 1. + ct * ( 0.0 + H(i) )
-          cv(i)  = 0.
-          rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-        ELSE  
-          av(i)  = - ct * H(i)
-          bv(i)  = 1. + ct * ( H(i+1) + H(i) )
-          cv(i)  = - ct * H(i+1)
-          rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-        ENDIF
-      ENDDO  
-      CALL Thomas(eta,av,bv,cv,rhs,IMAX)
+      !DO i = 1, IMAX
+      !  IF(i.EQ.1) THEN
+      !    avec(i)  = 0.
+      !   bvec(i)  = 1. + ct * ( H(i+1) + 0.0 )
+      !    cvec(i)  = - ct * H(i+1)
+      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+      !  ELSEIF(i.EQ.IMAX) THEN  
+      !    avec(i)  = - ct * H(i)
+      !    bvec(i)  = 1. + ct * ( 0.0 + H(i) )
+      !    cvec(i)  = 0.
+      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+      !  ELSE  
+      !    avec(i)  = - ct * H(i)
+      !    bvec(i)  = 1. + ct * ( H(i+1) + H(i) )
+      !    cvec(i)  = - ct * H(i+1)
+      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+      !  ENDIF
+      !ENDDO  
+      !CALL Thomas(eta,avec,bvec,cvec,rhs,IMAX)
       !
 #endif      
       !
@@ -301,7 +292,7 @@ PROGRAM FS2D
     !
     CALL Deallocate_Var
     !
-    DEALLOCATE( av, bv, cv, rhs )
+    DEALLOCATE( avec, bvec, cvec, rhs )
     !
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
@@ -317,9 +308,8 @@ SUBROUTINE matop1D(Ap,p,N)
     INTEGER  :: N
     REAL     :: Ap(N), p(N)
     !
-    INTEGER  :: i
-    INTEGER  :: j   ! 2D
-    REAL     :: ct, av, bv, cv
+    INTEGER  :: i, j
+    REAL     :: ct, avec, bvec, cvec
     !------------------------------------------------------------!
     !
     ct = g*dt**2/dx2  ! temporary coefficient
@@ -330,25 +320,25 @@ SUBROUTINE matop1D(Ap,p,N)
             continue
           endif  
           IF(i.EQ.1) THEN
-            !bv    = 1. + ct * ( H(i+1) + 0.0 )
-            bv    = 1. + ct * ( H(i+1, j+1) + 0.0 )     ! 2D, TODO use real formula, this is wrong and just for testing
-            !cv    = - ct * H(i+1)
-            cv    = - ct * H(i+1, j+1)                  ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = bv*p(i) + cv*p(i+1)
+            !bvec    = 1. + ct * ( H(i+1) + 0.0 )
+            bvec    = 1. + ct * ( Hu(i+1, j+1) + 0.0 )     ! 2D, TODO use real formula, this is wrong and just for testing
+            !cvec    = - ct * H(i+1)
+            cvec    = - ct * Hu(i+1, j+1)                  ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = bvec*p(i) + cvec*p(i+1)
           ELSEIF(i.EQ.IMAX) THEN  
-            !av    = - ct * H(i)
-            av    = - ct * H(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
-            !bv    = 1. + ct * ( 0.0 + H(i) )
-            bv    = 1. + ct * ( 0.0 + H(i,j) )          ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = av*p(i-1) + bv*p(i) 
+            !avec    = - ct * H(i)
+            avec    = - ct * Hu(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
+            !bvec    = 1. + ct * ( 0.0 + H(i) )
+            bvec    = 1. + ct * ( 0.0 + Hu(i,j) )          ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = avec*p(i-1) + bvec*p(i) 
           ELSE  
-            !av    = - ct * H(i)
-            av    = - ct * H(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
-            !bv    = 1. + ct * ( H(i+1) + H(i) )
-            bv    = 1. + ct * ( H(i+1,j+1) + H(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
-            !cv    = - ct * H(i+1)
-            cv    = - ct * H(i+1,j+1)                   ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = av*p(i-1) + bv*p(i) + cv*p(i+1)
+            !avec    = - ct * H(i)
+            avec    = - ct * Hu(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
+            !bvec    = 1. + ct * ( H(i+1) + H(i) )
+            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            !cvec    = - ct * H(i+1)
+            cvec    = - ct * Hu(i+1,j+1)                   ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = avec*p(i-1) + bvec*p(i) + cvec*p(i+1)
           ENDIF  
           !
       ENDDO       ! 2D

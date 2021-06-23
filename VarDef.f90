@@ -9,9 +9,11 @@ MODULE VarDef_mod
     REAL                :: yD,yU    ! 2D: domain boundaries for axis y
     real                :: s        ! 2D: initial condition
     REAL, ALLOCATABLE   :: x(:)     ! vertex coords     (where u is defined)
-    REAL, ALLOCATABLE   :: y(:)     ! 2D: vertex y coords
+    REAL, ALLOCATABLE   :: y(:)     ! 2D: vertex y coords (where v is defined)
+    ! TODO Why not use a single matrix for barycenter coords?
     REAL, ALLOCATABLE   :: xb(:)    ! barycenter coords (where eta is defined)
     REAL, ALLOCATABLE   :: yb(:)    ! 2D: barycenter y coords
+    !REAL, ALLOCATABLE   :: xyb(:,:) ! 2D: barycenter coords
     REAL                :: dx, dx2  ! mesh spacing
     REAL                :: dy, dy2  ! 2D: mesh spacing on the y axis
     
@@ -19,15 +21,16 @@ MODULE VarDef_mod
     REAL                :: CFL      ! CFL number for time step
     REAL, PARAMETER     :: G=9.81   ! gravity acceleration
     
-    REAL, ALLOCATABLE   :: u(:, :)     ! velocity
-    REAL, ALLOCATABLE   :: v(:, :)     ! 2D, TODO who exactly is this? (re-watch lesson)
-    REAL, ALLOCATABLE   :: Fu(:, :)    ! convective and viscous terms operator
-    REAL, ALLOCATABLE   :: Fv(:, :)    ! 2D, TODO who exactly is this? (re-watch lesson)
-    REAL, ALLOCATABLE   :: eta(:, :)   ! pressure
-    REAL, ALLOCATABLE   :: H(:, :)     ! total wather depth
-    REAL, ALLOCATABLE   :: b(:, :)     ! bottom elevation
-    !REAL, ALLOCATABLE   :: rhs(:)  ! rhs of the pressure system
-    REAL                :: nu       ! kinematic viscosity coefficient
+    REAL, ALLOCATABLE   :: u(:, :)      ! velocity
+    REAL, ALLOCATABLE   :: v(:, :)      ! 2D: velocity on the y axis
+    REAL, ALLOCATABLE   :: Fu(:, :)     ! convective and viscous terms operator
+    REAL, ALLOCATABLE   :: Fv(:, :)     ! 2D: convective and viscous terms operator for y axis
+    REAL, ALLOCATABLE   :: eta(:, :)    ! pressure
+    REAL, ALLOCATABLE   :: Hu(:, :)     ! total wather depth for u mesh
+    REAL, ALLOCATABLE   :: Hv(:, :)     ! total wather depth for v mesh
+    REAL, ALLOCATABLE   :: bu(:, :)     ! bottom elevation for u mesh
+    REAL, ALLOCATABLE   :: bv(:, :)     ! bottom elevation for v mesh
+    REAL                :: nu           ! kinematic viscosity coefficient
     
     REAL                :: time
     REAL                :: dt, dt2, dt_fix
@@ -44,41 +47,40 @@ MODULE VarDef_mod
 SUBROUTINE Allocate_Var
     IMPLICIT NONE
     
-    ALLOCATE( x(IMAX+1), xb(IMAX+1) )
-    ALLOCATE( y(JMAX+1), yb(JMAX+1) )   ! 2D
+    ALLOCATE( x(IMAX+1), xb(IMAX) )
+    ALLOCATE( y(JMAX+1), yb(JMAX) )
     x  = 0.
     xb = 0.
-    y  = 0. ! 2D
-    yb = 0. ! 2D
+    y  = 0.
+    yb = 0.
     
-    ! ALLOCATE( u(IMAX+1), Fu(IMAX+1) )
-    ALLOCATE( u(IMAX+1, JMAX+1), Fu(IMAX+1, JMAX+1) )   ! 2D
-    ALLOCATE( v(IMAX+1, JMAX+1), Fv(IMAX+1, JMAX+1) )   ! 2D
-    ! ALLOCATE( H(IMAX+1), b(IMAX+1)  )
-    ALLOCATE( H(IMAX+1, JMAX+1), b(IMAX+1, JMAX+1)  )   ! 2D
-    ! ALLOCATE( eta(IMAX)             )
-    ALLOCATE( eta(IMAX, JMAX)                       )   ! 2D
-    !ALLOCATE( eta(IMAX), rhs(IMAX)   )
+    ALLOCATE( u(   IMAX+1, JMAX   ), Fu( IMAX+1, JMAX   ) )
+    ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
+    ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
+    ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
+    ALLOCATE( eta( IMAX, JMAX )                           )
     u   = 0.
+    v   = 0.
     Fu  = 0.
-    H   = 0.
-    b   = 0.
+    Fv  = 0.
+    Hu  = 0.
+    Hv  = 0.
+    bu  = 0.
+    bv  = 0.
     eta = 0.
-    !rhs = 0.
     
 END SUBROUTINE Allocate_Var
 
 SUBROUTINE Deallocate_Var
     IMPLICIT NONE
-    DEALLOCATE( x, xb    )
-    DEALLOCATE( y, yb    )
-    DEALLOCATE( u, Fu    )
-    DEALLOCATE( v, Fv    ) ! 2D
-    DEALLOCATE( H, b     )
-    DEALLOCATE( eta      )
-    !DEALLOCATE( eta, rhs )
-END SUBROUTINE Deallocate_Var
-    
+    DEALLOCATE( x,  xb )
+    DEALLOCATE( y,  yb )
+    DEALLOCATE( u,  Fu )
+    DEALLOCATE( v,  Fv )
+    DEALLOCATE( Hu, bu )
+    DEALLOCATE( Hv, bv )
+    DEALLOCATE( eta    )
+END SUBROUTINE Deallocate_Var    
     
     
 END MODULE VarDef_mod

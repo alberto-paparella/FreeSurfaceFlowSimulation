@@ -6,9 +6,9 @@ SUBROUTINE DataOutput(timestep)
     INTEGER, INTENT(IN) :: timestep
     !
     INTEGER             :: i, DataUnit
-    INTEGER             :: j    ! 2D
+    INTEGER             :: j
     REAL                :: ub
-    REAL                :: vb   ! 2D
+    REAL                :: vb
     CHARACTER(LEN=10)   :: citer
     CHARACTER(LEN=200)  :: IOFileName
     !------------------------------------------------------------!
