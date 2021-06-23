@@ -9,7 +9,9 @@ MODULE VarDef_mod
     REAL                :: yB,yU    ! domain boundaries for axis y
     real                :: s        ! initial condition
     REAL, ALLOCATABLE   :: x(:)     ! vertex coords     (where u is defined)
+    REAL,ALLOCATABLE    :: y(:)
     REAL, ALLOCATABLE   :: xb(:)    ! barycenter coords (where eta is defined)
+    REAL, ALLOCATABLE   :: yb(:)
     REAL                :: dx, dx2  ! mesh spacing
     
     ! Discretization
@@ -40,7 +42,7 @@ SUBROUTINE Allocate_Var
     IMPLICIT NONE
     
     ALLOCATE( x(IMAX+1), xb(IMAX+1) )
-    ALLOCATE( x(JMAX+1), xb(JMAX+1) )
+    ALLOCATE( y(JMAX+1), yb(JMAX+1) )
     x  = 0.
     xb = 0.
     
@@ -63,6 +65,7 @@ END SUBROUTINE Allocate_Var
 SUBROUTINE Deallocate_Var
     IMPLICIT NONE
     DEALLOCATE( x, xb    )
+    DEALLOCATE( y, yb    )
     DEALLOCATE( u, Fu    )
     DEALLOCATE( H, b     )
     DEALLOCATE( eta      )

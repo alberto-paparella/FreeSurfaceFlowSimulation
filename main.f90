@@ -79,9 +79,9 @@ PROGRAM FS2D
     
     !
 #ifdef FS2D
-    !dy    = (yU - yB) / REAL(IMAX)  !
-    !dy    = dy**2                   !
-    !y(1)  = yB                      !
+    dy    = (yU - yB) / REAL(IMAX)  !
+    dy    = dy**2                   !
+    y(1)  = yB                      !
 #endif
     !
     
@@ -92,10 +92,10 @@ PROGRAM FS2D
       xb(i)  = x(i) + dx/2.
     ENDDO
 #ifdef FS2D
-    !DO j = 1, JMAX
-    !  y(j+1) = y(j) + dy
-    !  yb(j)  = y(j) + dy/2.
-    !ENDDO
+    DO j = 1, JMAX
+      y(j+1) = y(j) + dy
+      yb(j)  = y(j) + dy/2.
+    ENDDO
 #endif
     !
     !---------------------------------------- 
@@ -109,12 +109,12 @@ PROGRAM FS2D
     !
     
 #ifdef FS2D
-    !DO i = 1, IMAX
-    !  DO j = 1, JMAX
+    DO i = 1, IMAX
+      DO j = 1, JMAX
     !    ! Gaussian profile
-    !    eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( x(i)**2 + y(j)**2 )) ! x or xb ?
-    !  ENDDO
-    !ENDDO
+        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( x(i)**2 + y(j)**2 )) ! x or xb ?
+      ENDDO
+    ENDDO
 #else
     DO i = 1, IMAX
       ! Gaussian profile
@@ -125,26 +125,26 @@ PROGRAM FS2D
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !
 #ifdef FS2D
-    !DO i = 1, IMAX+1
-    !  DO j = 1, JMAX+1
-    !    u(i, j) = 0.0   ! fluid at rest
-    !    b(i, j) = 0.0   ! zero bottom elevation
-    !    v(i, j) = 0.0   !
-    !  ENDDO
-    !ENDDO
+    DO i = 1, IMAX+1
+      DO j = 1, JMAX+1
+        u(i, j) = 0.0   ! fluid at rest
+        b(i, j) = 0.0   ! zero bottom elevation
+        v(i, j) = 0.0   !
+      ENDDO
+    ENDDO
     !
     ! Total water depth
     !
-    !H(1,1)    = MAX( 0.0, b(1,1)+eta(1,1) )
-    !H(IMAX+1,JMAX+1) = MAX( 0.0, b(IMAX+1,JMAX+1)+eta(IMAX,JMAX) )
-    !DO i = 2, IMAX
-    !  DO j = 2, JMAX
-    !    H(i,j) = MAXVAL( (/ 0.0, b(i,j)+eta(i-1,j-1), b(i,j)+eta(i,j) /) )
-    !  ENDDO
-    !ENDDO  
+    H(1,1)    = MAX( 0.0, b(1,1)+eta(1,1) )
+    H(IMAX+1,JMAX+1) = MAX( 0.0, b(IMAX+1,JMAX+1)+eta(IMAX,JMAX) )
+    DO i = 2, IMAX
+      DO j = 2, JMAX
+        H(i,j) = MAXVAL( (/ 0.0, b(i,j)+eta(i-1,j-1), b(i,j)+eta(i,j) /) )
+      ENDDO
+    ENDDO  
     !
-    !CALL DataOutput(0)  ! plot initial condition
-    !tio = tio + dtio
+    CALL DataOutput(0)  ! plot initial condition
+    tio = tio + dtio
     !
 #else
     DO i = 1, IMAX+1
