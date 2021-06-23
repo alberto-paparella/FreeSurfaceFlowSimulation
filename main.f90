@@ -18,9 +18,10 @@ PROGRAM FS2D
     IMPLICIT NONE
     !------------------------------------------------------------!
     INTEGER            :: i, n
-    INTEGER            :: j     ! 2D
+    INTEGER            :: j         ! 2D
     REAL               :: umax, au, s0, ct
     REAL, ALLOCATABLE  :: av(:), bv(:), cv(:), rhs(:)
+    !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
     !
     WRITE(*,'(a)') ' | ========================================================================== | '
@@ -68,6 +69,7 @@ PROGRAM FS2D
     ALLOCATE( bv(IMAX)  )
     ALLOCATE( cv(IMAX)  )
     ALLOCATE( rhs(IMAX) )
+    !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
     !
     ! 1) Computational domain 
     !
@@ -200,16 +202,22 @@ PROGRAM FS2D
       !
       ! BC: no-slip wall
       !Fu(1)      = 0.0 
-      Fu(1, 1)           = 0.0 ! 2D
+      Fu(1, 1)           = 0.0  ! 2D
       !Fu(IMAX+1) = 0.0 
-      Fu(IMAX+1, JMAX+1) = 0.0 ! 2D
+      Fu(IMAX+1, JMAX+1) = 0.0  ! 2D
       !
       DO i = 2, IMAX
-        au = ABS(u(i))
-        ! Explicit upwind
-        Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
-              + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
-              + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1) 
+        DO j = 2, JMAX          ! 2D
+            ! au = ABS(u(i))
+            au = ABS(u(i,j))    ! 2D
+            ! Explicit upwind
+            !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
+            !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
+            !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
+            Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &      ! 2D, TODO use real formula, this is wrong and just for testing
+                  + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j+1) &    ! 2D, TODO use real formula, this is wrong and just for testing
+                  + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j-1)      ! 2D, TODO use real formula, this is wrong and just for testing
+        ENDDO   ! 2D
       ENDDO  
       !
       ! 3.3) Solve the free surface equation
@@ -217,11 +225,15 @@ PROGRAM FS2D
 #ifdef CGM
       !
       ! CONJUGATE GRADIENT METHOD
-      !     
-      DO i = 1, IMAX
-        rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-      ENDDO 
-      CALL CG(IMAX,eta,rhs)
+      !
+      DO j = 1, JMAX    ! 2D
+          DO i = 1, IMAX
+            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+            rhs(i) = eta(i,j) - dt/dx * ( H(i+1,j+1)*Fu(i+1,j+1) - H(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+          ENDDO
+          !CALL CG(IMAX,eta,rhs)
+          CALL CG(IMAX,eta(:,j),rhs) ! 2D
+      ENDDO ! 2D
       !
       
 #else
@@ -256,11 +268,18 @@ PROGRAM FS2D
       !
       ct = g*dt/dx  ! temporary coefficient
       !
-      u(1)      = Fu(1)
-      u(IMAX+1) = Fu(IMAX+1)
-      DO i = 2, IMAX
-        u(i) = Fu(i) - ct * ( eta(i) - eta(i-1) )  
-      ENDDO  
+      !u(1)      = Fu(1)
+      u(1,1)      = Fu(1,1)                 ! 2D
+      !u(IMAX+1) = Fu(IMAX+1)
+      u(IMAX+1,JMAX+1) = Fu(IMAX+1,JMAX+1)  ! 2D
+      !DO i = 2, IMAX
+      !  u(i) = Fu(i) - ct * ( eta(i) - eta(i-1) )  
+      !ENDDO
+      DO i = 2, IMAX                                            ! 2D
+          DO j = 2, JMAX                                        ! 2D
+            u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
+          ENDDO                                                 ! 2D
+      ENDDO                                                     ! 2D
       !
       time = time + dt  ! update time
       !
@@ -299,30 +318,40 @@ SUBROUTINE matop1D(Ap,p,N)
     REAL     :: Ap(N), p(N)
     !
     INTEGER  :: i
+    INTEGER  :: j   ! 2D
     REAL     :: ct, av, bv, cv
     !------------------------------------------------------------!
     !
     ct = g*dt**2/dx2  ! temporary coefficient
     !
     DO i = 1, IMAX
-      if(i.eq.250) then
-        continue
-      endif  
-      IF(i.EQ.1) THEN
-        bv    = 1. + ct * ( H(i+1) + 0.0 )
-        cv    = - ct * H(i+1)
-        Ap(i) = bv*p(i) + cv*p(i+1)
-      ELSEIF(i.EQ.IMAX) THEN  
-        av    = - ct * H(i)
-        bv    = 1. + ct * ( 0.0 + H(i) )
-        Ap(i) = av*p(i-1) + bv*p(i) 
-      ELSE  
-        av    = - ct * H(i)
-        bv    = 1. + ct * ( H(i+1) + H(i) )
-        cv    = - ct * H(i+1)
-        Ap(i) = av*p(i-1) + bv*p(i) + cv*p(i+1)
-      ENDIF  
-      !
-    ENDDO  
+      DO j = 1, JMAX    ! 2D
+          if(i.eq.250) then
+            continue
+          endif  
+          IF(i.EQ.1) THEN
+            !bv    = 1. + ct * ( H(i+1) + 0.0 )
+            bv    = 1. + ct * ( H(i+1, j+1) + 0.0 )     ! 2D, TODO use real formula, this is wrong and just for testing
+            !cv    = - ct * H(i+1)
+            cv    = - ct * H(i+1, j+1)                  ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = bv*p(i) + cv*p(i+1)
+          ELSEIF(i.EQ.IMAX) THEN  
+            !av    = - ct * H(i)
+            av    = - ct * H(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
+            !bv    = 1. + ct * ( 0.0 + H(i) )
+            bv    = 1. + ct * ( 0.0 + H(i,j) )          ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = av*p(i-1) + bv*p(i) 
+          ELSE  
+            !av    = - ct * H(i)
+            av    = - ct * H(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
+            !bv    = 1. + ct * ( H(i+1) + H(i) )
+            bv    = 1. + ct * ( H(i+1,j+1) + H(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            !cv    = - ct * H(i+1)
+            cv    = - ct * H(i+1,j+1)                   ! 2D, TODO use real formula, this is wrong and just for testing
+            Ap(i) = av*p(i-1) + bv*p(i) + cv*p(i+1)
+          ENDIF  
+          !
+      ENDDO       ! 2D
+    ENDDO
     !
 END SUBROUTINE matop1D
