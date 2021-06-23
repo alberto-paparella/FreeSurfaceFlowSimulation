@@ -20,7 +20,9 @@ MODULE VarDef_mod
     REAL, PARAMETER     :: G=9.81   ! gravity acceleration
     
     REAL, ALLOCATABLE   :: u(:, :)     ! velocity
+    REAL, ALLOCATABLE   :: v(:, :)     ! 2D, TODO who exactly is this? (re-watch lesson)
     REAL, ALLOCATABLE   :: Fu(:, :)    ! convective and viscous terms operator
+    REAL, ALLOCATABLE   :: Fv(:, :)    ! 2D, TODO who exactly is this? (re-watch lesson)
     REAL, ALLOCATABLE   :: eta(:, :)   ! pressure
     REAL, ALLOCATABLE   :: H(:, :)     ! total wather depth
     REAL, ALLOCATABLE   :: b(:, :)     ! bottom elevation
@@ -51,6 +53,7 @@ SUBROUTINE Allocate_Var
     
     ! ALLOCATE( u(IMAX+1), Fu(IMAX+1) )
     ALLOCATE( u(IMAX+1, JMAX+1), Fu(IMAX+1, JMAX+1) )   ! 2D
+    ALLOCATE( v(IMAX+1, JMAX+1), Fv(IMAX+1, JMAX+1) )   ! 2D
     ! ALLOCATE( H(IMAX+1), b(IMAX+1)  )
     ALLOCATE( H(IMAX+1, JMAX+1), b(IMAX+1, JMAX+1)  )   ! 2D
     ! ALLOCATE( eta(IMAX)             )
@@ -70,6 +73,7 @@ SUBROUTINE Deallocate_Var
     DEALLOCATE( x, xb    )
     DEALLOCATE( y, yb    )
     DEALLOCATE( u, Fu    )
+    DEALLOCATE( v, Fv    ) ! 2D
     DEALLOCATE( H, b     )
     DEALLOCATE( eta      )
     !DEALLOCATE( eta, rhs )

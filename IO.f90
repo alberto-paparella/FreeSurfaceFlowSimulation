@@ -8,6 +8,7 @@ SUBROUTINE DataOutput(timestep)
     INTEGER             :: i, DataUnit
     INTEGER             :: j    ! 2D
     REAL                :: ub
+    REAL                :: vb   ! 2D
     CHARACTER(LEN=10)   :: citer
     CHARACTER(LEN=200)  :: IOFileName
     !------------------------------------------------------------!
@@ -40,7 +41,7 @@ SUBROUTINE DataOutput(timestep)
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   
     ! Variables
     ! WRITE(DataUnit,*) 'VARIABLES = "x" "eta" "u" '
-    WRITE(DataUnit,*) 'VARIABLES = "x" "y" "eta" "u" '  ! 2D
+    WRITE(DataUnit,*) 'VARIABLES = "x" "y" "eta" "u" "v" '  ! 2D
     ! Header
     ! WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' F=POINT'
     WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' J=', JMAX, ' F=POINT' ! 2D
@@ -50,7 +51,8 @@ SUBROUTINE DataOutput(timestep)
           ! TODO Fix ub fot 2D versione: how to update ub?
           ! ub = 0.5 * ( u(i) + u(i+1) )   ! interpolate velocity at barycenters
           ub = 0.5 * ( u(i,j) + u(i+1, j+1) )   ! 2D: interpolate velocity at barycenters
-          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j), ub
+          vb = 0.0  ! 2D: TODO interpolate velocity at barycenters  for v
+          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j), ub, vb
       ENDDO ! 2D
     ENDDO  
 #endif    
