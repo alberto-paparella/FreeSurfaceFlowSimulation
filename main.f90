@@ -19,7 +19,7 @@ PROGRAM FS2D
     !------------------------------------------------------------!
     INTEGER            :: i, j, n
     REAL               :: umax, au, s0, ct
-    REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:), rhs(:)
+    REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:)
     !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
     !
@@ -67,7 +67,8 @@ PROGRAM FS2D
     ALLOCATE( avec(IMAX)  )  
     ALLOCATE( bvec(IMAX)  )
     ALLOCATE( cvec(IMAX)  )
-    ALLOCATE( rhs(IMAX) )
+    ALLOCATE( rhs(IMAX, JMAX) )
+    ALLOCATE( chs(IMAX, JMAX) )
     !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
     !
     ! 1) Computational domain 
@@ -193,7 +194,7 @@ PROGRAM FS2D
       ! 3.2) Compute the operator Fu
       !
       ! BC: no-slip wall
-      Fu(1)      = u(1,1)   !2D
+      Fu(1,1)      = u(1,1)   !2D
 
       !Fu(IMAX+1) = u(IMAX+1)
       Fu(IMAX+1,JMAX+1) = u(IMAX+1,JMAX+1)  ! 2D
@@ -210,8 +211,7 @@ PROGRAM FS2D
             !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
             !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
             !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
-            Fu(i,j) = (eta(i,j)) - u*(g*dt/dx2 * ( eta(i,j) - eta(i-1,j) ) * u(i,j)   &      ! 2D
-                  - u * g*(dt/dy**2) * ( ( eta(i,j) - eta(i-1,j) ) * v(i,j) ) * v(i+1,j+1)     ! 2D to check that it is correct
+            Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D
 
         ENDDO   ! 2D
       ENDDO  
@@ -231,13 +231,34 @@ PROGRAM FS2D
             !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
             !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
             !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
-            Fv(i,j) = (eta(i,j)) - u*(g*dt/dx2 * ( eta(i,j) - eta(i-1,j) ) * u(i,j)   &      ! 2D
-                  - u * g*(dt/dy**2) * ( ( eta(i,j) - eta(i-1,j) ) * v(i,j) ) * v(i+1,j+1)     ! 2D to check that it is correct
+            Fv(i,j) = (eta(i,j)) - v(i+1,j)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
 
         ENDDO   ! 2D
-      ENDDO
+        ENDDO
+        !
+        ! 3.4) Solve the system for the pressure
+        !
+        !compute the rhs
+         DO j = 1, JMAX    ! 2D
+          DO i = 1, IMAX
+            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D
+          ENDDO
+          !CALL CG(IMAX,eta,rhs)
+          CALL CG(IMAX,eta,rhs) ! 2D
+         ENDDO ! 2D
+         
+         !compute the chs
+             DO j = 1, JMAX    ! 2D
+          DO i = 1, IMAX
+            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
+            chs(i,j) = eta(i,j) - dt/dy * ( Hv(i+1,j+1)*Fv(i+1,j+1) - Hv(i,j)*Fv(i,j) )
+          ENDDO
+          !CALL CG(IMAX,eta,rhs)
+          CALL CG(JMAX,eta,chs) ! 2D
+      ENDDO ! 2D
       !
-      ! 3.3) Solve the free surface equation
+      ! 3.5) Solve the free surface equation
       !
 #ifdef CGM
       !

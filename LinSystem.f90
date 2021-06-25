@@ -68,4 +68,25 @@ SUBROUTINE CG(N,x,b)
       STOP     
     ENDIF
     ! 
-END SUBROUTINE CG  
+    END SUBROUTINE CG  
+    
+   ! SUBROUTINE  matop1D(Ap,p,N) !this routine does a*p
+   ! USE VarDef_mod
+   ! IMPLICIT NONE
+   !INTEGER :: i
+   ! REAL    :: c    !coefficient
+    
+   ! c=g*dt2/dx2
+    
+   ! DO i = 1,IMAX
+      !  IF(i.eq.1) THEN
+            
+     !   ELSEIF(i.eq.IMAX) THEN
+            
+       ! ELSE    !general case
+          !  c1=-c*H(i+1)
+           ! Ap(i) =   
+       ! ENDIF
+   ! ENDDO
+    
+   !END SUBROUTINE  matop1D
