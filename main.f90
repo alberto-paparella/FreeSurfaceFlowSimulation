@@ -121,7 +121,7 @@ PROGRAM FS2D
     ! TODO think about a solution using a single matrix, for eample using a matrix of dimensions IMAX*2+1 * JMAX*2+1
     !      and indices for both axis with step 2 (note the sparse form of the matrix, is it possible a better solution?)
     ! By the way, at the moment I think the 2 vectors solution is faster and also lighter in memory terms
-    ! Same valuation values for H
+    ! Same valuation values for H 
     DO i = 1, IMAX + 1
       DO j = 1, JMAX
         u(i, j)  = 0.0      ! fluid at rest
@@ -181,6 +181,7 @@ PROGRAM FS2D
       !umax = MAXVAL( ABS(u) + SQRT(g*H))  ! fully explicit time step
       umax = MAXVAL( ABS(u) )             ! semi-implicit time step
       dt   = MIN( dt_fix, CFL / ( (umax+1e-14)/dx + 2.*nu/dx2 ) )
+      dt2   = dt**2
       IF((time+dt).GT.tend) THEN
         dt  = tend - time   
         tio = tend
@@ -192,22 +193,27 @@ PROGRAM FS2D
       ! 3.2) Compute the operator Fu
       !
       ! BC: no-slip wall
-      !Fu(1)      = 0.0 
+      !Fu(1)      = u(1)
       Fu(1, 1)           = 0.0  ! 2D
-      !Fu(IMAX+1) = 0.0 
+      
+      !Fu(IMAX+1) = u(IMAX+1)
       Fu(IMAX+1, JMAX+1) = 0.0  ! 2D
       !
+      !is not needed because our formula does not include viscosity,
+      !so we have to take the convention equation, with a being our velocity u,
+      !and add and subtract the other velocity, depending on whether we take information
+      !against redirection, propagation of information
       DO i = 2, IMAX
         DO j = 2, JMAX          ! 2D
             ! au = ABS(u(i))
-            au = ABS(u(i,j))    ! 2D
+            !au = ABS(u(i,j))    ! 2D
             ! Explicit upwind
             !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
             !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
             !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
-            Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &      ! 2D, TODO use real formula, this is wrong and just for testing
-                  + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j+1) &    ! 2D, TODO use real formula, this is wrong and just for testing
-                  + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j-1)      ! 2D, TODO use real formula, this is wrong and just for testing
+            Fu(i,j) = (eta(i,j)) - u*(g*dt/dx2 * ( eta(i,j) - eta(i-1,j) ) * u(i,j)   &      ! 2D
+                  - u * g*(dt/dy**2) * ( ( eta(i,j) - eta(i-1,j) ) * v(i,j) ) * v(i+1,j+1)     ! 2D to check that it is correct
+
         ENDDO   ! 2D
       ENDDO  
       !
