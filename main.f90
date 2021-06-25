@@ -193,11 +193,10 @@ PROGRAM FS2D
       ! 3.2) Compute the operator Fu
       !
       ! BC: no-slip wall
-      !Fu(1)      = u(1)
-      Fu(1, 1)           = 0.0  ! 2D
-      
+      Fu(1)      = u(1,1)   !2D
+
       !Fu(IMAX+1) = u(IMAX+1)
-      Fu(IMAX+1, JMAX+1) = 0.0  ! 2D
+      Fu(IMAX+1,JMAX+1) = u(IMAX+1,JMAX+1)  ! 2D
       !
       !is not needed because our formula does not include viscosity,
       !so we have to take the convention equation, with a being our velocity u,
@@ -216,6 +215,27 @@ PROGRAM FS2D
 
         ENDDO   ! 2D
       ENDDO  
+      ! 3.3) Compute the operator Fv
+      !
+      ! BC: no-slip wall
+      !Fu(1)      = u(1)
+      FV(1, 1)           = V(1,1)  ! 2D
+      
+      !Fu(IMAX+1) = u(IMAX+1)
+      Fv(IMAX+1,JMAX+1) = v(IMAX+1,JMAX+1)  ! 2D
+        DO i = 2, IMAX
+        DO j = 2, JMAX          ! 2D
+            ! au = ABS(u(i))
+            !au = ABS(u(i,j))    ! 2D
+            ! Explicit upwind
+            !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
+            !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
+            !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
+            Fv(i,j) = (eta(i,j)) - u*(g*dt/dx2 * ( eta(i,j) - eta(i-1,j) ) * u(i,j)   &      ! 2D
+                  - u * g*(dt/dy**2) * ( ( eta(i,j) - eta(i-1,j) ) * v(i,j) ) * v(i+1,j+1)     ! 2D to check that it is correct
+
+        ENDDO   ! 2D
+      ENDDO
       !
       ! 3.3) Solve the free surface equation
       !
@@ -226,7 +246,8 @@ PROGRAM FS2D
       DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            rhs(i) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            chs(i,j) = eta(i,j) - dt/dy * ( Hv(i+1,j+1)*Fv(i+1,j+1) - Hv(i,j)*Fv(i,j) )
           ENDDO
           !CALL CG(IMAX,eta,rhs)
           CALL CG(IMAX,eta(:,j),rhs) ! 2D
