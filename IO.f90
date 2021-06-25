@@ -6,9 +6,7 @@ SUBROUTINE DataOutput(timestep)
     INTEGER, INTENT(IN) :: timestep
     !
     INTEGER             :: i, DataUnit
-    INTEGER             :: j
     REAL                :: ub
-    REAL                :: vb
     CHARACTER(LEN=10)   :: citer
     CHARACTER(LEN=200)  :: IOFileName
     !------------------------------------------------------------!
@@ -19,7 +17,6 @@ SUBROUTINE DataOutput(timestep)
     !
     OPEN(UNIT=DataUnit, FILE=TRIM(IOFilename), STATUS='UNKNOWN', ACTION='WRITE')
     !
-! WARNING - At the moment, we do not consider this case (matlab output)
 #ifdef MATLAB_OUT
     ! Header
     WRITE(DataUnit,*) IMAX
@@ -40,20 +37,13 @@ SUBROUTINE DataOutput(timestep)
     ! Current time 
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   
     ! Variables
-    ! WRITE(DataUnit,*) 'VARIABLES = "x" "eta" "u" '
-    WRITE(DataUnit,*) 'VARIABLES = "x" "y" "eta" "u" "v" '  ! 2D
+    WRITE(DataUnit,*) 'VARIABLES = "x" "eta" "u" '
     ! Header
-    ! WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' F=POINT'
-    WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' J=', JMAX, ' F=POINT' ! 2D
+    WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' F=POINT'
     !
     DO i = 1, IMAX
-      DO j = 1, JMAX    ! 2D
-          ! TODO Fix ub fot 2D versione: how to update ub?
-          ! ub = 0.5 * ( u(i) + u(i+1) )   ! interpolate velocity at barycenters
-          ub = 0.5 * ( u(i,j) + u(i+1, j+1) )   ! 2D: interpolate velocity at barycenters
-          vb = 0.0  ! 2D: TODO interpolate velocity at barycenters  for v
-          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j), ub, vb
-      ENDDO ! 2D
+      ub = 0.5 * ( u(i) + u(i+1) )   ! interpolate velocity at barycenters
+      WRITE(DataUnit,*) xb(i), eta(i), ub
     ENDDO  
 #endif    
     !

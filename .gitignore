@@ -338,9 +338,3 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-
-################################################################
-#          Other ignores added for the current project         #
-################################################################
-# .dat files in which we store the results of the computation
-*.dat
