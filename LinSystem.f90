@@ -38,7 +38,7 @@ SUBROUTINE CG(N,x,b)
     !----------------------------------------!
     !
     x = b                 ! initial guess   
-    CALL matop1D(Ax,x,N)  ! matrix-vector multiplication
+    CALL matop2D(Ax,x,N)  ! matrix-vector multiplication
     r = b - Ax            ! residual   
     p = r                 ! search direction = max. descent   
     alphak = SUM(r*r) 
@@ -52,7 +52,7 @@ SUBROUTINE CG(N,x,b)
         RETURN
       ENDIF    
       !   
-      CALL matop1D(Ap,p,N)    
+      CALL matop2D(Ap,p,N)    
       pAp    = SUM(p*Ap)        
       lambda = alphak / pAp
       x      = x + lambda*p
@@ -70,23 +70,4 @@ SUBROUTINE CG(N,x,b)
     ! 
     END SUBROUTINE CG  
     
-   ! SUBROUTINE  matop1D(Ap,p,N) !this routine does a*p
-   ! USE VarDef_mod
-   ! IMPLICIT NONE
-   !INTEGER :: i
-   ! REAL    :: c    !coefficient
-    
-   ! c=g*dt2/dx2
-    
-   ! DO i = 1,IMAX
-      !  IF(i.eq.1) THEN
-            
-     !   ELSEIF(i.eq.IMAX) THEN
-            
-       ! ELSE    !general case
-          !  c1=-c*H(i+1)
-           ! Ap(i) =   
-       ! ENDIF
-   ! ENDDO
-    
-   !END SUBROUTINE  matop1D
+  

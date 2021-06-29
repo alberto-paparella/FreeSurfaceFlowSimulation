@@ -18,7 +18,7 @@ PROGRAM FS2D
     IMPLICIT NONE
     !------------------------------------------------------------!
     INTEGER            :: i, j, n
-    REAL               :: umax, au, s0, ct
+    REAL               :: umax, au, s0, ct, cs
     REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:)
     !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
@@ -211,7 +211,7 @@ PROGRAM FS2D
             !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
             !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
             !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
-            Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D
+            Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D to try, if it doesn't work you have to find another formula with the upwind method
 
         ENDDO   ! 2D
       ENDDO  
@@ -272,6 +272,7 @@ PROGRAM FS2D
           ENDDO
           !CALL CG(IMAX,eta,rhs)
           CALL CG(IMAX,eta(:,j),rhs) ! 2D
+          CALL CG(IMAX,eta(:,j),rhs) 
       ENDDO ! 2D
       !
       
@@ -309,15 +310,16 @@ PROGRAM FS2D
       cs = g*dt/dy ! temporary coefficient
       !
       !u(1)      = Fu(1)
-      u(1,1)      = Fu(1,1)                 ! 2D
+      u(1,:)      = Fu(1,:) 
+      u(:,1)      = Fu(:,1)   ! 2D
       !u(IMAX+1) = Fu(IMAX+1)
-      u(IMAX+1,JMAX+1) = Fu(IMAX+1,JMAX+1)  ! 2D
+      u(IMAX+1,:) = Fu(IMAX+1,:)  ! 2D
       !DO i = 2, IMAX
       !  u(i) = Fu(i) - ct * ( eta(i) - eta(i-1) )  
       !ENDDO
-      DO i = 2, IMAX                                            ! 2D
+      DO i = 2, IMAX                                          ! 2D
           DO j = 2, JMAX                                        ! 2D
-            u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
+            u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j-1) ) ! 2D
           ENDDO                                                 ! 2D
       ENDDO                                                     ! 2D
       !
@@ -326,15 +328,16 @@ PROGRAM FS2D
       
         !
       !u(1)      = Fu(1)
-      v(1,1)      = Fv(1,1)                 ! 2D
+      v(1,:)      = Fv(1,:) 
+      v(:,1)      = Fv(:,1)   ! 2D                ! 2D
       !u(IMAX+1) = Fu(IMAX+1)
-      v(IMAX+1,JMAX+1) = Fv(IMAX+1,JMAX+1)  ! 2D
+      v(:,JMAX+1) = Fv(:,JMAX+1)  ! 2D
       !DO i = 2, IMAX
       !  u(i) = Fu(i) - ct * ( eta(i) - eta(i-1) )  
       !ENDDO
       DO i = 2, IMAX                                            ! 2D
           DO j = 2, JMAX                                        ! 2D
-            v(i,j) = Fu(i,j) - cs * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
+            v(i,j) = Fu(i,j) - cs * ( eta(i,j) - eta(i-1,j-1) ) ! 2D
           ENDDO                                                 ! 2D
       ENDDO 
       ! 3.5) Eventually plot the results
@@ -361,9 +364,11 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
     WRITE(*,'(a)') ' | ====================================================== | '
     !
+    
+    PAUSE
 END PROGRAM FS2D 
   
-SUBROUTINE matop1D(Ap,p,N) 
+SUBROUTINE matop2D(Ap,p,N)  
     !------------------------------------------------------------!
     USE VarDef_mod
     IMPLICIT NONE
@@ -372,39 +377,55 @@ SUBROUTINE matop1D(Ap,p,N)
     REAL     :: Ap(N), p(N)
     !
     INTEGER  :: i, j
-    REAL     :: ct, avec, bvec, cvec
+    REAL     :: ct,cs , avec, bvec, cvec
+    REAL     :: avecj, bvecj, cvecj
     !------------------------------------------------------------!
     !
-    ct = g*dt**2/dx2  ! temporary coefficient
-    !
-    DO i = 1, IMAX
-      DO j = 1, JMAX    ! 2D
+    ct = g*dt2/dx2  ! temporary coefficient
+    cs = g*dt2/dy2
+    !is to be fixed, after solving the system to calculate eta
+
+    DO i = 1, N
+      DO j = 1, N    ! 2D
           if(i.eq.250) then
             continue
           endif  
           IF(i.EQ.1) THEN
-            !bvec    = 1. + ct * ( H(i+1) + 0.0 )
-            bvec    = 1. + ct * ( Hu(i+1, j+1) + 0.0 )     ! 2D, TODO use real formula, this is wrong and just for testing
+            !bvec    = 1. + ct * ( H(i+1) + H(i) )
+            bvec    = 1. + ct * ( Hu(i+1,j+1) + 0.0 )   ! 2D
+            bvecj   = 1. + cs * ( Hv(i+1,j+1) + 0.0 )   ! 2D
             !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1, j+1)                  ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = bvec*p(i) + cvec*p(i+1)
-          ELSEIF(i.EQ.IMAX) THEN  
+            cvec    = - ct * Hu(i+1,j+1)                    ! 2D
+            cvecj   = - cs * Hv(i+1,j+1)                    ! 2D
+            
+            Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j+1)           ! 2D
+            Ap(i,j) = bvecj*p(i,j) + cvecj*p(i+1, j+1)       ! 2D
+          ELSEIF(i.EQ.N) THEN  
             !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
-            !bvec    = 1. + ct * ( 0.0 + H(i) )
-            bvec    = 1. + ct * ( 0.0 + Hu(i,j) )          ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = avec*p(i-1) + bvec*p(i) 
+            avec    = - ct * Hu(i,j)                        ! 2D
+            avecj   = - cs * Hv(i,j)                        ! 2D
+            !bvec    = 1. + ct * ( H(i+1) + H(i) )
+            bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    (there is no flow)
+            bvecj   = 1. + cs * ( 0.0 + Hv(i,j) )   ! 2D
+                    
+            Ap(i,j) = avec*p(i-1,j-1) + bvec*p(i,j)           ! 2D
+            Ap(i,j) = avecj*p(i-1,j-1) + bvecj*p(i,j)        ! 2D 
           ELSE  
             !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j)                       ! 2D, TODO use real formula, this is wrong and just for testing
+            avec    = - ct * Hu(i,j)                        ! 2D
+            avecj   = - cs * Hv(i,j)                        ! 2D
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
+            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j) )   ! 2D
+            bvecj   = 1. + cs * ( Hv(i+1,j+1) + Hv(i,j) )   ! 2D
             !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1,j+1)                   ! 2D, TODO use real formula, this is wrong and just for testing
-            Ap(i) = avec*p(i-1) + bvec*p(i) + cvec*p(i+1)
+            cvec    = - ct * Hu(i+1,j+1)                    ! 2D
+            cvecj   = - cs * Hv(i+1,j+1)                    ! 2D
+            Ap(i,j) = avec*p(i-1,j-1) + bvec*p(i,j) + cvec*p(i+1,j+1)           ! 2D
+            Ap(i,j) = avecj*p(i-1,j-1) + bvecj*p(i,j) + cvecj*p(i+1, j+1)       ! 2D
+            
           ENDIF  
           !
       ENDDO       ! 2D
     ENDDO
     !
-END SUBROUTINE matop1D
+END SUBROUTINE matop2D

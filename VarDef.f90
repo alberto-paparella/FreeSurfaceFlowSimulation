@@ -61,8 +61,8 @@ SUBROUTINE Allocate_Var
     ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
     ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
     ALLOCATE( eta( IMAX, JMAX )                           )
-    ALLOCATE (rhs(IMAX,JMAX)                              )
-    ALLOCATE (chs(IMAX,JMAX)                              )
+    !ALLOCATE (rhs(IMAX,JMAX)                              )
+    !ALLOCATE (chs(IMAX,JMAX)                              )
    ! ALLOCATE( eta( IMAX, JMAX ) ,rhs(IMAX,JMAX)           )
    ! ALLOCATE( eta( IMAX, JMAX ) ,chs(IMAX,JMAX)           )
     u   = 0.
