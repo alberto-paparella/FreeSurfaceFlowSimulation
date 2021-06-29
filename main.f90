@@ -224,14 +224,14 @@ PROGRAM FS2D
       !Fu(IMAX+1) = u(IMAX+1)
       Fv(IMAX+1,JMAX+1) = v(IMAX+1,JMAX+1)  ! 2D
         DO i = 2, IMAX
-        DO j = 2, JMAX          ! 2D
+        DO j = 2, JMAX +1         ! 2D
             ! au = ABS(u(i))
             !au = ABS(u(i,j))    ! 2D
             ! Explicit upwind
             !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
             !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
             !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
-            Fv(i,j) = (eta(i,j)) - v(i+1,j)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
+            Fv(i,j) = (eta(i,j)) - v(i,j+1)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
 
         ENDDO   ! 2D
         ENDDO
@@ -306,6 +306,7 @@ PROGRAM FS2D
       ! 3.4) Update the velocity (momentum equation)
       !
       ct = g*dt/dx  ! temporary coefficient
+      cs = g*dt/dy ! temporary coefficient
       !
       !u(1)      = Fu(1)
       u(1,1)      = Fu(1,1)                 ! 2D
@@ -322,6 +323,20 @@ PROGRAM FS2D
       !
       time = time + dt  ! update time
       !
+      
+        !
+      !u(1)      = Fu(1)
+      v(1,1)      = Fv(1,1)                 ! 2D
+      !u(IMAX+1) = Fu(IMAX+1)
+      v(IMAX+1,JMAX+1) = Fv(IMAX+1,JMAX+1)  ! 2D
+      !DO i = 2, IMAX
+      !  u(i) = Fu(i) - ct * ( eta(i) - eta(i-1) )  
+      !ENDDO
+      DO i = 2, IMAX                                            ! 2D
+          DO j = 2, JMAX                                        ! 2D
+            u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
+          ENDDO                                                 ! 2D
+      ENDDO 
       ! 3.5) Eventually plot the results
       IF(ABS(time-tio).LT.1e-12) THEN
         WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
