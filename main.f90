@@ -219,7 +219,7 @@ PROGRAM FS2D
       !
       ! BC: no-slip wall
       !Fu(1)      = u(1)
-      FV(1, 1)           = V(1,1)  ! 2D
+      Fv(1, 1)           = v(1,1)  ! 2D
       
       !Fu(IMAX+1) = u(IMAX+1)
       Fv(IMAX+1,JMAX+1) = v(IMAX+1,JMAX+1)  ! 2D

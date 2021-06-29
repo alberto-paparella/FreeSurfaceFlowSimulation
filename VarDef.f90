@@ -61,8 +61,10 @@ SUBROUTINE Allocate_Var
     ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
     ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
     ALLOCATE( eta( IMAX, JMAX )                           )
-    ALLOCATE( eta( IMAX, JMAX ) ,rhs(IMAX,JMAX)           )
-    ALLOCATE( eta( IMAX, JMAX ) ,chs(IMAX,JMAX)           )
+    ALLOCATE (rhs(IMAX,JMAX)                              )
+    ALLOCATE (chs(IMAX,JMAX)                              )
+   ! ALLOCATE( eta( IMAX, JMAX ) ,rhs(IMAX,JMAX)           )
+   ! ALLOCATE( eta( IMAX, JMAX ) ,chs(IMAX,JMAX)           )
     u   = 0.
     v   = 0.
     Fu  = 0.
@@ -86,8 +88,8 @@ SUBROUTINE Deallocate_Var
     DEALLOCATE( Hu, bu )
     DEALLOCATE( Hv, bv )
     DEALLOCATE( eta    )
-    DEALLOCATE( eta, rhs)
-    DEALLOCATE( eta, chs)
+    DEALLOCATE( rhs)
+    DEALLOCATE( chs)
 END SUBROUTINE Deallocate_Var    
     
     
