@@ -334,7 +334,7 @@ PROGRAM FS2D
       !ENDDO
       DO i = 2, IMAX                                            ! 2D
           DO j = 2, JMAX                                        ! 2D
-            u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
+            v(i,j) = Fu(i,j) - cs * ( eta(i,j) - eta(i-1,j-1) ) ! 2D, TODO use real formula, this is wrong and just for testing
           ENDDO                                                 ! 2D
       ENDDO 
       ! 3.5) Eventually plot the results
