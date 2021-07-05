@@ -248,7 +248,7 @@ PROGRAM FS2D
            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
         ENDDO ! 2D
-        CALL CG(IMAX,eta,rhs)
+        CALL CG(IMAX,JMAX,eta,rhs)
       !
       ! 3.5) Solve the free surface equation
       !
@@ -259,11 +259,11 @@ PROGRAM FS2D
       DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i-1, j)*Fu(i+1,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j-1)*Fv(i,j+1))
+           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
           !CALL CG(IMAX,eta,rhs)
       ENDDO ! 2D
-      CALL CG(IMAX,eta,rhs) ! 2D 
+      CALL CG(IMAX,JMAX,eta,rhs) ! 2D 
       !
       
 #else
