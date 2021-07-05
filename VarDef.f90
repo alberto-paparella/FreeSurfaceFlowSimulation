@@ -31,8 +31,7 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: bu(:, :)     ! bottom elevation for u mesh
     REAL, ALLOCATABLE   :: bv(:, :)     ! bottom elevation for v mesh
     REAL                :: nu           ! kinematic viscosity coefficient
-    REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system for u
-    REAL, ALLOCATABLE   :: chs(:, :)    ! chs of the pressure system for v
+    REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system 
     
     REAL                :: time
     REAL                :: dt, dt2, dt_fix
@@ -63,7 +62,7 @@ SUBROUTINE Allocate_Var
     ALLOCATE( eta( IMAX, JMAX )                           )
     !ALLOCATE (rhs(IMAX,JMAX)                              )
     !ALLOCATE (chs(IMAX,JMAX)                              )
-   ! ALLOCATE( eta( IMAX, JMAX ) ,rhs(IMAX,JMAX)           )
+    !ALLOCATE( eta( IMAX, JMAX ) ,rhs(IMAX,JMAX)           )
    ! ALLOCATE( eta( IMAX, JMAX ) ,chs(IMAX,JMAX)           )
     u   = 0.
     v   = 0.
@@ -75,7 +74,6 @@ SUBROUTINE Allocate_Var
     bv  = 0.
     eta = 0.
     rhs = 0.
-    chs = 0.
     
 END SUBROUTINE Allocate_Var
 
@@ -89,7 +87,6 @@ SUBROUTINE Deallocate_Var
     DEALLOCATE( Hv, bv )
     DEALLOCATE( eta    )
     DEALLOCATE( rhs)
-    DEALLOCATE( chs)
 END SUBROUTINE Deallocate_Var    
     
     

@@ -18,7 +18,7 @@ PROGRAM FS2D
     IMPLICIT NONE
     !------------------------------------------------------------!
     INTEGER            :: i, j, n
-    REAL               :: umax, au, s0, ct, cs
+    REAL               :: umax, au, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:)
     !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
@@ -68,7 +68,7 @@ PROGRAM FS2D
     ALLOCATE( bvec(IMAX)  )
     ALLOCATE( cvec(IMAX)  )
     ALLOCATE( rhs(IMAX, JMAX) )
-    ALLOCATE( chs(IMAX, JMAX) )
+ 
     !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
     !
     ! 1) Computational domain 
@@ -252,27 +252,24 @@ PROGRAM FS2D
              DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            chs(i,j) = eta(i,j) - dt/dy * ( Hv(i+1,j+1)*Fv(i+1,j+1) - Hv(i,j)*Fv(i,j) )
+           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i-1, j)*Fu(i+1,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j-1)*Fv(i,j+1))
           ENDDO
-          !CALL CG(IMAX,eta,rhs)
-          CALL CG(JMAX,eta,chs) ! 2D
+          CALL CG(IMAX,eta,rhs)
       ENDDO ! 2D
       !
       ! 3.5) Solve the free surface equation
       !
-#ifdef CGM
+#ifdef CG
       !
       ! CONJUGATE GRADIENT METHOD
       !
       DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D, TODO use real formula, this is wrong and just for testing
-            chs(i,j) = eta(i,j) - dt/dy * ( Hv(i+1,j+1)*Fv(i+1,j+1) - Hv(i,j)*Fv(i,j) )
+            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i-1, j)*Fu(i+1,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j-1)*Fv(i,j+1))
           ENDDO
           !CALL CG(IMAX,eta,rhs)
-          CALL CG(IMAX,eta(:,j),rhs) ! 2D
-          CALL CG(IMAX,eta(:,j),rhs) 
+          CALL CG(IMAX,eta(:,j),rhs) ! 2D 
       ENDDO ! 2D
       !
       
@@ -374,7 +371,7 @@ SUBROUTINE matop2D(Ap,p,N)
     IMPLICIT NONE
     !------------------------------------------------------------!
     INTEGER  :: N
-    REAL     :: Ap(N), p(N)
+    REAL     :: Ap(N,N), p(N,N)
     !
     INTEGER  :: i, j
     REAL     :: ct,cs , avec, bvec, cvec
@@ -392,36 +389,31 @@ SUBROUTINE matop2D(Ap,p,N)
           endif  
           IF(i.EQ.1) THEN
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j+1) + 0.0 )   ! 2D
-            bvecj   = 1. + cs * ( Hv(i+1,j+1) + 0.0 )   ! 2D
+              bvec    = 1. + ct * ( Hu(i+1,j+1) + 0.0) + cs*( Hv(i+1,j+1) + 0.0 )
             !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1,j+1)                    ! 2D
-            cvecj   = - cs * Hv(i+1,j+1)                    ! 2D
+            cvec    = - ct * Hu(i+1,j)                    ! 2D
+            cvecj   = - cs * Hv(i,j+1)                    ! 2D
             
             Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j+1)           ! 2D
             Ap(i,j) = bvecj*p(i,j) + cvecj*p(i+1, j+1)       ! 2D
           ELSEIF(i.EQ.N) THEN  
             !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j)                        ! 2D
-            avecj   = - cs * Hv(i,j)                        ! 2D
-            !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    (there is no flow)
-            bvecj   = 1. + cs * ( 0.0 + Hv(i,j) )   ! 2D
+            avec    = - ct * Hu(i,j-1)                        ! 2D
+            avecj   = - cs * Hv(i-1,j)                         ! 2D
+            !bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    
+            bvec    = 1. + ct * ( 0.0 + Hu(i,j)) + cs*( 0.0 + Hv(i,j) )  ! 2D
                     
-            Ap(i,j) = avec*p(i-1,j-1) + bvec*p(i,j)           ! 2D
-            Ap(i,j) = avecj*p(i-1,j-1) + bvecj*p(i,j)        ! 2D 
+            Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j)           ! 2D
           ELSE  
             !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j)                        ! 2D
-            avecj   = - cs * Hv(i,j)                        ! 2D
+            avec    = - ct * Hu(i,j-1)                        ! 2D
+            avecj   = - cs * Hv(i-1,j)                        ! 2D
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j) )   ! 2D
-            bvecj   = 1. + cs * ( Hv(i+1,j+1) + Hv(i,j) )   ! 2D
+            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j)) + cs*( Hv(i+1,j+1) + Hv(i,j) )  ! 2D
             !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1,j+1)                    ! 2D
-            cvecj   = - cs * Hv(i+1,j+1)                    ! 2D
-            Ap(i,j) = avec*p(i-1,j-1) + bvec*p(i,j) + cvec*p(i+1,j+1)           ! 2D
-            Ap(i,j) = avecj*p(i-1,j-1) + bvecj*p(i,j) + cvecj*p(i+1, j+1)       ! 2D
+            cvec    = - ct * Hu(i+1,j)                    ! 2D
+            cvecj   = - cs * Hv(i,j+1)                    ! 2D
+            Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j) + cvec*p(i+1,j)  + cvec*p(i,j+1)         ! 2D
             
           ENDIF  
           !

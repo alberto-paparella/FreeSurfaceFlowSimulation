@@ -26,12 +26,12 @@ SUBROUTINE CG(N,x,b)
     IMPLICIT NONE
     !----------------------------------------!
     INTEGER         :: N                     ! size of the linear system
-    REAL            :: x(N)                  ! solution  
-    REAL            :: b(N)                  ! right hand side  
+    REAL            :: x(N,N)                  ! solution  
+    REAL            :: b(N,N)                  ! right hand side  
     !----------------------------------------!
     INTEGER         :: k, KMAX, iErr
-    REAL            :: Ax(N), Ap(N)
-    REAL            :: r(N), p(N)
+    REAL            :: Ax(N,N), Ap(N,N)
+    REAL            :: r(N,N), p(N,N)
     REAL            :: pAp, lambda
     REAL            :: alphak, alpha
     REAL, PARAMETER :: tol = 1e-12           ! tolerance for convergence  
