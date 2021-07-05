@@ -19,7 +19,8 @@ PROGRAM FS2D
     !------------------------------------------------------------!
     INTEGER            :: i, j, n
     REAL               :: umax, au, s0, ct, cs , a , b
-    REAL, ALLOCATABLE  :: avec(:), bvec(:), cvec(:)
+    REAL, ALLOCATABLE  :: avec(:,:), bvec(:,:), cvec(:,:)
+    REAL, ALLOCATABLE  :: avecj(:,:) , cvecj(:,:)
     !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
     !------------------------------------------------------------!
     !
@@ -28,7 +29,7 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' | ========================================================================== | '
     WRITE(*,'(a)') ' | '
     !
-#ifdef CGM
+#ifdef CG
     WRITE(*,'(a)') ' | Soluzione con il metodo del gradiente coniugato. '
 #else
     WRITE(*,'(a)') ' | Solver: Thomas algorithm. '
@@ -64,9 +65,11 @@ PROGRAM FS2D
     CALL Allocate_Var  ! allocate all variables
     !
     ! vectors for assembling the tridiagonal linear system
-    ALLOCATE( avec(IMAX)  )  
-    ALLOCATE( bvec(IMAX)  )
-    ALLOCATE( cvec(IMAX)  )
+    ALLOCATE( avec(IMAX,JMAX)  )  
+    ALLOCATE( avecj(IMAX,JMAX)  )  
+    ALLOCATE( bvec(IMAX,JMAX)  )
+    ALLOCATE( cvec(IMAX,JMAX)  )
+    ALLOCATE( cvecj(IMAX,JMAX)  )
     ALLOCATE( rhs(IMAX, JMAX) )
  
     !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
@@ -197,7 +200,7 @@ PROGRAM FS2D
       Fu(1,1)      = u(1,1)   !2D
 
       !Fu(IMAX+1) = u(IMAX+1)
-      Fu(IMAX+1,JMAX+1) = u(IMAX+1,JMAX+1)  ! 2D    !qui mi crea una eccezione
+      Fu(IMAX+1,JMAX) = u(IMAX+1,JMAX)  ! 2D    !qui mi crea una eccezione
       !
       !is not needed because our formula does not include viscosity,
       !so we have to take the convention equation, with a being our velocity u,
@@ -222,9 +225,9 @@ PROGRAM FS2D
       Fv(1, 1)           = v(1,1)  ! 2D
       
       !Fu(IMAX+1) = u(IMAX+1)
-      Fv(IMAX+1,JMAX+1) = v(IMAX+1,JMAX+1)  ! 2D
+      Fv(IMAX,JMAX+1) = v(IMAX,JMAX+1)  ! 2D
         DO i = 2, IMAX
-        DO j = 2, JMAX +1         ! 2D
+        DO j = 2, JMAX        ! 2D
             ! au = ABS(u(i))
             !au = ABS(u(i,j))    ! 2D
             ! Explicit upwind
@@ -239,13 +242,13 @@ PROGRAM FS2D
         ! 3.4) Solve the system for the pressure
         !
         !compute the rhs
-             DO j = 1, JMAX    ! 2D
-          DO i = 1, IMAX
+        DO i = 1, IMAX    ! 2D
+          DO j = 1, JMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i-1, j)*Fu(i+1,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j-1)*Fv(i,j+1))
+           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
-          CALL CG(IMAX,eta,rhs)
-      ENDDO ! 2D
+        ENDDO ! 2D
+        CALL CG(IMAX,eta,rhs)
       !
       ! 3.5) Solve the free surface equation
       !
@@ -259,8 +262,8 @@ PROGRAM FS2D
             rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i-1, j)*Fu(i+1,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j-1)*Fv(i,j+1))
           ENDDO
           !CALL CG(IMAX,eta,rhs)
-          CALL CG(IMAX,eta(:,j),rhs) ! 2D 
       ENDDO ! 2D
+      CALL CG(IMAX,eta,rhs) ! 2D 
       !
       
 #else
@@ -345,7 +348,7 @@ PROGRAM FS2D
     !
     CALL Deallocate_Var
     !
-    DEALLOCATE( avec, bvec, cvec, rhs )
+    DEALLOCATE( avec, bvec, cvec,avecj,cvecj, rhs )
     !
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
