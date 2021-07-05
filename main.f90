@@ -159,7 +159,7 @@ PROGRAM FS2D
       ENDDO
     ENDDO
     !
-    CALL DataOutput(0)  ! plot initial condition
+!    CALL DataOutput(0)  ! plot initial condition
     tio = tio + dtio
     !---------------------------------------------
     !
@@ -197,7 +197,7 @@ PROGRAM FS2D
       Fu(1,1)      = u(1,1)   !2D
 
       !Fu(IMAX+1) = u(IMAX+1)
-      Fu(IMAX+1,JMAX+1) = u(IMAX+1,JMAX+1)  ! 2D
+      Fu(IMAX+1,JMAX+1) = u(IMAX+1,JMAX+1)  ! 2D    !qui mi crea una eccezione
       !
       !is not needed because our formula does not include viscosity,
       !so we have to take the convention equation, with a being our velocity u,
@@ -239,16 +239,6 @@ PROGRAM FS2D
         ! 3.4) Solve the system for the pressure
         !
         !compute the rhs
-         DO j = 1, JMAX    ! 2D
-          DO i = 1, IMAX
-            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j+1)*Fu(i+1,j+1) - Hu(i,j)*Fu(i,j) )   ! 2D
-          ENDDO
-          !CALL CG(IMAX,eta,rhs)
-          CALL CG(IMAX,eta,rhs) ! 2D
-         ENDDO ! 2D
-         
-         !compute the chs
              DO j = 1, JMAX    ! 2D
           DO i = 1, IMAX
             !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
@@ -375,7 +365,7 @@ SUBROUTINE matop2D(Ap,p,N)
     !
     INTEGER  :: i, j
     REAL     :: ct,cs , avec, bvec, cvec
-    REAL     :: avecj, bvecj, cvecj
+    REAL     :: avecj , cvecj
     !------------------------------------------------------------!
     !
     ct = g*dt2/dx2  ! temporary coefficient
@@ -394,8 +384,7 @@ SUBROUTINE matop2D(Ap,p,N)
             cvec    = - ct * Hu(i+1,j)                    ! 2D
             cvecj   = - cs * Hv(i,j+1)                    ! 2D
             
-            Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j+1)           ! 2D
-            Ap(i,j) = bvecj*p(i,j) + cvecj*p(i+1, j+1)       ! 2D
+            Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j+1)  + cvecj*p(i+1,j+1)        ! 2D
           ELSEIF(i.EQ.N) THEN  
             !avec    = - ct * H(i)
             avec    = - ct * Hu(i,j-1)                        ! 2D

@@ -33,8 +33,11 @@ SUBROUTINE DataOutput(timestep)
     ENDDO
     ! Velocity (interpolation at barycenters)
     DO i = 1, IMAX
-      ub = 0.5 * ( u(i) + u(i+1) )  
-      WRITE(DataUnit,*) ub
+         DO j = 1, JMAX 
+              ub = 0.5 * ( u(i,j) + u(i+1,j+1) )  
+              vb = 0.5 * ( v(i,j) + v(i+1,j+1) ) 
+              WRITE(DataUnit,*) ub , vb
+         ENDDO
     ENDDO
 #else
     ! Current time 
