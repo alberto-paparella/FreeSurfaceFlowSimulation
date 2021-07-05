@@ -8,7 +8,7 @@ clc
 FileID = fopen('Gaussian_test-0000.dat');
 
 % Read number of cells
-IMAX = fscanf(FileID,'%s \n',1); 
+IMAX = fscanf(FileID,'%d'); 
 
 % Read data
 x   = fscanf(FileID,'%f \n',IMAX);

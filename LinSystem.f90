@@ -1,31 +1,8 @@
-SUBROUTINE Thomas(x,a,b,c,d,N) 
-   IMPLICIT NONE 
-   ! Argument list 
-   INTEGER :: N 
-   REAL    :: x(N), a(N), b(N), c(N), d(N) 
-   ! Local variables 
-   REAL    :: gamma
-   INTEGER :: i  
-   !
-   c(1) = c(1)/b(1)
-   d(1) = d(1)/b(1) 
-   ! Part I: forward elimination
-   DO i = 2, N
-      gamma=1.0/(b(i)-c(i-1)*a(i)) 
-      c(i) = c(i)*gamma 
-      d(i) = (d(i)-a(i)*d(i-1))*gamma 
-   ENDDO
-   ! Part II: back substitution
-   x(N)=d(N); 
-   DO i = N-1, 1, -1 
-    x(i)=d(i)-c(i)*x(i+1) 
-   ENDDO 
-END SUBROUTINE Thomas 
-  
-SUBROUTINE CG(N,x,b)
+
+SUBROUTINE CG(N,M,x,b)
     IMPLICIT NONE
     !----------------------------------------!
-    INTEGER         :: N                        ! size of the linear system
+    INTEGER         :: N   , M                     ! size of the linear system
     REAL            :: x(N,N)                  ! solution  
     REAL            :: b(N,N)                  ! right hand side  
     !----------------------------------------!

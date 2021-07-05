@@ -27,24 +27,22 @@ SUBROUTINE DataOutput(timestep)
     DO i = 1, IMAX
       WRITE(DataUnit,*) xb(i)
     ENDDO  
+      DO j = 1, JMAX
+      WRITE(DataUnit,*) yb(j)
+    ENDDO  
     ! Pressure
-    DO i = 1, IMAX
-      WRITE(DataUnit,*) eta(i)
+    DO j = 1, JMAX
+        DO i= 1,IMAX     
+            WRITE(DataUnit,*) eta(i,j)
+        ENDDO
     ENDDO
-    ! Velocity (interpolation at barycenters)
-    DO i = 1, IMAX
-         DO j = 1, JMAX 
-              ub = 0.5 * ( u(i,j) + u(i+1,j+1) )  
-              vb = 0.5 * ( v(i,j) + v(i+1,j+1) ) 
-              WRITE(DataUnit,*) ub , vb
-         ENDDO
-    ENDDO
+    
 #else
     ! Current time 
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   
     ! Variables
     ! WRITE(DataUnit,*) 'VARIABLES = "x" "eta" "u" '
-    WRITE(DataUnit,*) 'VARIABLES = "x" "y" "eta" "u" "v" '  ! 2D
+    WRITE(DataUnit,*) 'VARIABLES = "x" "y" "eta"  '  ! 2D
     ! Header
     ! WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' F=POINT'
     WRITE(DataUnit,*) 'ZONE T="Only Zone", I=', IMAX, ' J=', JMAX, ' F=POINT' ! 2D
@@ -53,9 +51,9 @@ SUBROUTINE DataOutput(timestep)
       DO j = 1, JMAX    ! 2D
           ! TODO Fix ub fot 2D versione: how to update ub?
           ! ub = 0.5 * ( u(i) + u(i+1) )   ! interpolate velocity at barycenters
-          ub = 0.5 * ( u(i,j) + u(i+1, j+1) )   ! 2D: interpolate velocity at barycenters
-          vb = 0.0  ! 2D: TODO interpolate velocity at barycenters  for v
-          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j), ub, vb
+         ! ub = 0.5 * ( u(i,j) + u(i+1, j+1) )   ! 2D: interpolate velocity at barycenters
+          !vb = 0.0  ! 2D: TODO interpolate velocity at barycenters  for v
+          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j)
       ENDDO ! 2D
     ENDDO  
 #endif    

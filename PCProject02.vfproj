@@ -35,8 +35,8 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|x64">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Preprocess="preprocessYes" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions=" PARALLEL,CG" RuntimeLibrary="rtMultiThreadedDebug" UseWindowsLibs="true"/>
-				<Tool Name="VFLinkerTool" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(MSMPI_LIB64)" IgnoreDefaultLibraryNames="libcmt.lib" SubSystem="subSystemConsole" HeapReserveSize="1800000000" HeapCommitSize="1800000000" StackReserveSize="1800000000" StackCommitSize="1800000000" AdditionalDependencies="msmpi.lib msmpifmc.lib"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" AdditionalIncludeDirectories="$(MSMPI_INC); $(MSMPI_INC)x64;" PreprocessorDefinitions="PARALLEL ; CG ; MATLAB_OUT" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" UseWindowsLibs="true"/>
+				<Tool Name="VFLinkerTool" SuppressStartupBanner="true" AdditionalLibraryDirectories="$(MSMPI_LIB64)" IgnoreDefaultLibraryNames="libcmt.lib" GenerateDebugInformation="true" SubSystem="subSystemConsole" HeapReserveSize="1800000000" HeapCommitSize="1800000000" StackReserveSize="1800000000" StackCommitSize="1800000000" AdditionalDependencies="msmpi.lib msmpifmc.lib"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64" HeaderFileName="$(InputName).h"/>
 				<Tool Name="VFCustomBuildTool"/>

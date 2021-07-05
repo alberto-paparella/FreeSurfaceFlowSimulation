@@ -21,7 +21,7 @@ PROGRAM FS2D
     REAL               :: umax, au, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: avec(:,:), bvec(:,:), cvec(:,:)
     REAL, ALLOCATABLE  :: avecj(:,:) , cvecj(:,:)
-    !REAL, ALLOCATABLE  :: rhs(:,:)  ! 2D, not sure, trying a different solution
+
     !------------------------------------------------------------!
     !
     WRITE(*,'(a)') ' | ========================================================================== | '
@@ -248,7 +248,7 @@ PROGRAM FS2D
            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
         ENDDO ! 2D
-        CALL CG(IMAX,JMAX,eta,rhs)
+     !   CALL CG(IMAX,JMAX,eta,rhs)
       !
       ! 3.5) Solve the free surface equation
       !
@@ -265,32 +265,8 @@ PROGRAM FS2D
       ENDDO ! 2D
       CALL CG(IMAX,JMAX,eta,rhs) ! 2D 
       !
-      
-#else
-      !
-      ! THOMAS ALGORITHM
-      !
-      !ct = g*dt**2/dx2  ! temporary coefficient
-      !
-      !DO i = 1, IMAX
-      !  IF(i.EQ.1) THEN
-      !    avec(i)  = 0.
-      !   bvec(i)  = 1. + ct * ( H(i+1) + 0.0 )
-      !    cvec(i)  = - ct * H(i+1)
-      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-      !  ELSEIF(i.EQ.IMAX) THEN  
-      !    avec(i)  = - ct * H(i)
-      !    bvec(i)  = 1. + ct * ( 0.0 + H(i) )
-      !    cvec(i)  = 0.
-      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-      !  ELSE  
-      !    avec(i)  = - ct * H(i)
-      !    bvec(i)  = 1. + ct * ( H(i+1) + H(i) )
-      !    cvec(i)  = - ct * H(i+1)
-      !    rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-      !  ENDIF
-      !ENDDO  
-      !CALL Thomas(eta,avec,bvec,cvec,rhs,IMAX)
+    
+
       !
 #endif      
       !
