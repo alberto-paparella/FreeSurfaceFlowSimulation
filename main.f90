@@ -346,18 +346,18 @@ SUBROUTINE matop2D(Ap,p,N)
     !is to be fixed, after solving the system to calculate eta
 
     DO i = 1, N
-      DO j = 1, N    ! 2D
+      DO j = 2, N    ! 2D
           if(i.eq.250) then
             continue
           endif  
           IF(i.EQ.1) THEN
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
-              bvec    = 1. + ct * ( Hu(i+1,j+1) + 0.0) + cs*( Hv(i+1,j+1) + 0.0 )
+              bvec    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
             !cvec    = - ct * H(i+1)
             cvec    = - ct * Hu(i+1,j)                    ! 2D
             cvecj   = - cs * Hv(i,j+1)                    ! 2D
             
-            Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j+1)  + cvecj*p(i+1,j+1)        ! 2D
+            Ap(i,j) = bvec*p(i,j) + cvec*p(i+1,j)  + cvecj*p(i,j+1)        ! 2D
           ELSEIF(i.EQ.N) THEN  
             !avec    = - ct * H(i)
             avec    = - ct * Hu(i,j-1)                        ! 2D
