@@ -29,7 +29,7 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' | ========================================================================== | '
     WRITE(*,'(a)') ' | '
     !
-#ifdef CG
+#ifdef CGM
     WRITE(*,'(a)') ' | Soluzione con il metodo del gradiente coniugato. '
 #else
     WRITE(*,'(a)') ' | Solver: Thomas algorithm. '
@@ -65,12 +65,12 @@ PROGRAM FS2D
     CALL Allocate_Var  ! allocate all variables
     !
     ! vectors for assembling the tridiagonal linear system
-    ALLOCATE( avec(IMAX,JMAX)  )  
+    ALLOCATE( avec(IMAX,JMAX)   )  
     ALLOCATE( avecj(IMAX,JMAX)  )  
-    ALLOCATE( bvec(IMAX,JMAX)  )
-    ALLOCATE( cvec(IMAX,JMAX)  )
+    ALLOCATE( bvec(IMAX,JMAX)   )
+    ALLOCATE( cvec(IMAX,JMAX)   )
     ALLOCATE( cvecj(IMAX,JMAX)  )
-    ALLOCATE( rhs(IMAX, JMAX) )
+    ALLOCATE( rhs(IMAX, JMAX)   )
  
     !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
     !
@@ -211,9 +211,6 @@ PROGRAM FS2D
             ! au = ABS(u(i))
             !au = ABS(u(i,j))    ! 2D
             ! Explicit upwind
-            !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
-            !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
-            !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
             Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D to try, if it doesn't work you have to find another formula with the upwind method
 
         ENDDO   ! 2D
@@ -227,16 +224,13 @@ PROGRAM FS2D
       !Fu(IMAX+1) = u(IMAX+1)
       Fv(IMAX,JMAX+1) = v(IMAX,JMAX+1)  ! 2D
         DO i = 2, IMAX
-        DO j = 2, JMAX        ! 2D
+            DO j = 2, JMAX        ! 2D
             ! au = ABS(u(i))
             !au = ABS(u(i,j))    ! 2D
             ! Explicit upwind
-            !Fu(i) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i)   &
-            !      + dt * ( nu/dx2 + (au-u(i))/(2.*dx) ) * u(i+1) &
-            !      + dt * ( nu/dx2 + (au+u(i))/(2.*dx) ) * u(i-1)
             Fv(i,j) = (eta(i,j)) - v(i,j+1)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
 
-        ENDDO   ! 2D
+            ENDDO   ! 2D
         ENDDO
         !
         ! 3.4) Solve the system for the pressure
@@ -248,11 +242,11 @@ PROGRAM FS2D
            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
         ENDDO ! 2D
-     !   CALL CG(IMAX,JMAX,eta,rhs)
+        CALL CG(IMAX,eta,rhs)
       !
       ! 3.5) Solve the free surface equation
       !
-#ifdef CG
+#ifdef CGM
       !
       ! CONJUGATE GRADIENT METHOD
       !
@@ -263,7 +257,7 @@ PROGRAM FS2D
           ENDDO
           !CALL CG(IMAX,eta,rhs)
       ENDDO ! 2D
-      CALL CG(IMAX,JMAX,eta,rhs) ! 2D 
+      CALL CG(IMAX,eta,rhs) ! 2D 
       !
     
 
@@ -324,7 +318,7 @@ PROGRAM FS2D
     !
     CALL Deallocate_Var
     !
-    DEALLOCATE( avec, bvec, cvec,avecj,cvecj, rhs )
+    DEALLOCATE( avec,bvec,cvec, avecj,cvecj, rhs )
     !
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
@@ -339,7 +333,7 @@ SUBROUTINE matop2D(Ap,p,N)
     USE VarDef_mod
     IMPLICIT NONE
     !------------------------------------------------------------!
-    INTEGER  :: N
+    INTEGER  :: N 
     REAL     :: Ap(N,N), p(N,N)
     !
     INTEGER  :: i, j

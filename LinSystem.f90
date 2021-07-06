@@ -1,8 +1,8 @@
 
-SUBROUTINE CG(N,M,x,b)
+SUBROUTINE CG(N,x,b)
     IMPLICIT NONE
     !----------------------------------------!
-    INTEGER         :: N   , M                     ! size of the linear system
+    INTEGER         :: N                      ! size of the linear system
     REAL            :: x(N,N)                  ! solution  
     REAL            :: b(N,N)                  ! right hand side  
     !----------------------------------------!
