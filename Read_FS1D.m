@@ -9,12 +9,11 @@ FileID = fopen('Gaussian_test-0000.dat');
 
 % Read number of cells
 IMAX = fscanf(FileID,'%d'); 
-JMAX = fscanf(FileID,'%d');
+
 % Read data
 x   = fscanf(FileID,'%f \n',IMAX);
-y   = fscanf(FileID,'%f \n',JMAX);
-eta = fscanf(FileID,'%f \n',IMAX,JMAX);
-u   = fscanf(FileID,'%f \n',IMAX,JMAX);
+eta = fscanf(FileID,'%f \n',IMAX);
+u   = fscanf(FileID,'%f \n',IMAX);
 
 % Plot data
 figure(1);

@@ -162,7 +162,7 @@ PROGRAM FS2D
       ENDDO
     ENDDO
     !
-!    CALL DataOutput(0)  ! plot initial condition
+    CALL DataOutput(0)  ! plot initial condition
     tio = tio + dtio
     !---------------------------------------------
     !
@@ -345,43 +345,48 @@ SUBROUTINE matop2D(Ap,p,N)
     cs = g*dt2/dy2
     !is to be fixed, after solving the system to calculate eta
 
-    DO j = 2, N
-      DO i = 1, N   ! 2D
+    DO i = 2, N
+      DO j = 2, N   ! 2D
           if(i.eq.250) then
             continue
           endif  
           IF(i.EQ.1) THEN
-             
-            !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
-            !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1,j)                    ! 2D
-            cvecj   = - cs * Hv(i,j+1)                    ! 2D
+             IF(j.EQ.1) THEN
+                !bvec    = 1. + ct * ( H(i+1) + H(i) )
+                bvec    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
+                !cvec    = - ct * H(i+1)
+                cvec    = - ct * Hu(i+1,j)                    ! 2D
+                cvecj   = - cs * Hv(i,j+1)                    ! 2D
             
-            Ap(i,j) = bvec*p(i,j) + cvec*p(i,j)  + cvecj*p(i,j)        ! 2D
-              ELSEIF(i.EQ.N) THEN  
-                  ELSEIF(j.EQ.N) THEN 
-            !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j-1)                        ! 2D
-            avecj   = - cs * Hv(i-1,j)                         ! 2D
-            !bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    
-            bvec    = 1. + ct * ( 0.0 + Hu(i,j)) + cs*( 0.0 + Hv(i,j) )  ! 2D
+                Ap(i,j) = bvec*p(i,j) + cvec*p(i,j)  + cvecj*p(i,j)        ! 2D
+            ELSEIF(i.EQ.N) THEN  
+                ELSEIF(j.EQ.N) THEN 
+                    !avec    = - ct * H(i)
+                    avec    = - ct * Hu(i,j-1)                        ! 2D
+                    avecj   = - cs * Hv(i-1,j)                         ! 2D
+                    !bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    
+                    bvec    = 1. + ct * ( 0.0 + Hu(i,j)) + cs*( 0.0 + Hv(i,j) )  ! 2D
                     
-            Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j)           ! 2D
-          ELSE  
-            !avec    = - ct * H(i)
-            avec    = - ct * Hu(i,j)                        ! 2D
-            avecj   = - cs * Hv(i,j)                        ! 2D
-            !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j) + Hu(i,j)) + cs*( Hv(i,j+1) + Hv(i,j) )  ! 2D
-            !cvec    = - ct * H(i+1)
-            cvec    = - ct * Hu(i+1,j)                    ! 2D
-            cvecj   = - cs * Hv(i,j+1)                    ! 2D
-            Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j) + cvec*p(i+1,j)  + cvec*p(i,j+1)         ! 2D
+                    Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j)           ! 2D
+            ELSE 
+                !avec    = - ct * H(i)
+                avec    = - ct * Hu(i,j)                        ! 2D
+                avecj   = - cs * Hv(i,j)                        ! 2D
+                !bvec    = 1. + ct * ( H(i+1) + H(i) )
+                bvec    = 1. + ct * ( Hu(i+1,j) + Hu(i,j)) + cs*( Hv(i,j+1) + Hv(i,j) )  ! 2D
+                !cvec    = - ct * H(i+1)
+                cvec    = - ct * Hu(i+1,j)                    ! 2D
+                cvecj   = - cs * Hv(i,j+1)                    ! 2D
+                Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j) + cvec*p(i+1,j)  + cvec*p(i,j+1)         ! 2D
             
-          ENDIF  
+            ENDIF  
+          ENDIF
+          
           !
       ENDDO       ! 2D
     ENDDO
+    
+  
+    
     !
 END SUBROUTINE matop2D
