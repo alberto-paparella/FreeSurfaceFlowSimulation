@@ -351,6 +351,7 @@ SUBROUTINE matop2D(Ap,p,N)
             continue
           endif  
           IF(i.EQ.1) THEN
+             
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
             bvec    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
             !cvec    = - ct * H(i+1)
@@ -358,7 +359,8 @@ SUBROUTINE matop2D(Ap,p,N)
             cvecj   = - cs * Hv(i,j+1)                    ! 2D
             
             Ap(i,j) = bvec*p(i,j) + cvec*p(i,j)  + cvecj*p(i,j)        ! 2D
-          ELSEIF(i.EQ.N) THEN  
+              ELSEIF(i.EQ.N) THEN  
+                  ELSEIF(j.EQ.N) THEN 
             !avec    = - ct * H(i)
             avec    = - ct * Hu(i,j-1)                        ! 2D
             avecj   = - cs * Hv(i-1,j)                         ! 2D
