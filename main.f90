@@ -345,8 +345,8 @@ SUBROUTINE matop2D(Ap,p,N)
     cs = g*dt2/dy2
     !is to be fixed, after solving the system to calculate eta
 
-    DO i = 1, N
-      DO j = 1, N    ! 2D
+    DO j = 2, N
+      DO i = 1, N   ! 2D
           if(i.eq.250) then
             continue
           endif  
@@ -371,7 +371,7 @@ SUBROUTINE matop2D(Ap,p,N)
             avec    = - ct * Hu(i,j)                        ! 2D
             avecj   = - cs * Hv(i,j)                        ! 2D
             !bvec    = 1. + ct * ( H(i+1) + H(i) )
-            bvec    = 1. + ct * ( Hu(i+1,j+1) + Hu(i,j)) + cs*( Hv(i+1,j+1) + Hv(i,j) )  ! 2D
+            bvec    = 1. + ct * ( Hu(i+1,j) + Hu(i,j)) + cs*( Hv(i,j+1) + Hv(i,j) )  ! 2D
             !cvec    = - ct * H(i+1)
             cvec    = - ct * Hu(i+1,j)                    ! 2D
             cvecj   = - cs * Hv(i,j+1)                    ! 2D
