@@ -1,176 +1,156 @@
-!------------------------------------------------------------------!
-! Progetto II.
-! Equazione dei flussi a superficie libera su griglie strutturate.
-!------------------------------------------------------------------!
-! Università di Ferrara - Dipartimento di Matematica e Informatica.
-! Corso di Algoritmi per il Calcolo Parallelo.
+!======================================================================================================!
+! Progetto II
+! Equazione dei flussi a superficie libera su griglie strutturate
+!======================================================================================================!
+! Università degli studi di Ferrara - Dipartimento di Matematica e Informatica
+! Corso di Algoritmi per il Calcolo Parallelo
 ! Prof. Walter Boscheri
 ! A.A. 2020/2021
-!------------------------------------------------------------------!
+!======================================================================================================!
 ! Studenti.
 ! Alberto Paparella - 144261
 ! Elena Zerbin      - 145302
-!------------------------------------------------------------------!
-    
+!======================================================================================================!
+! main.f90
+! This is the main file
+!======================================================================================================!
 PROGRAM FS2D
-    !------------------------------------------------------------!
-    USE VarDef_mod
+    !==================================================================================================!
+    USE VarDef_mod  ! In this module we defined the variables we are going to use
     IMPLICIT NONE
-    !------------------------------------------------------------!
+    !==================================================================================================!
     INTEGER            :: i, j, n
     REAL               :: umax, au, s0, ct, cs , a , b
-    REAL, ALLOCATABLE  :: avec(:,:), bvec(:,:), cvec(:,:)
-    REAL, ALLOCATABLE  :: avecj(:,:) , cvecj(:,:)
-
-    !------------------------------------------------------------!
-    !
-    WRITE(*,'(a)') ' | ========================================================================== | '
-    WRITE(*,'(a)') ' |      Equazione dei flussi a superficie libera su griglie strutturate.      | '
-    WRITE(*,'(a)') ' | ========================================================================== | '
+    REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
+    !==================================================================================================!
+    WRITE(*,'(a)') ' | ================================================================== | '
+    WRITE(*,'(a)') ' |  Equazione dei flussi a superficie libera su griglie strutturate.  | '
+    WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' | '
-    !
-#ifdef CGM
     WRITE(*,'(a)') ' | Soluzione con il metodo del gradiente coniugato. '
-#else
-    WRITE(*,'(a)') ' | Solver: Thomas algorithm. '
-#endif
-    WRITE(*,'(a)') ' | '
-    !
-    !======================================== 
+    !==================================================================================================!
     ! SETTINGS OF THE COMPUTATION
-    !========================================
-    !
+    !==================================================================================================!
     TestName = 'Gaussian_test'
-    !
+    ! Concerning x axys
     IMAX   = 500    ! Max index for x coordinates
-    xL     = -0.5
-    xR     = 0.5
-    !
-    JMAX   = 500    ! 2D: Max index for y coordinates
-    yD     = -0.5   ! 2D
-    yU     = 0.5    ! 2D
-    s      = 0.1    ! 2D
-    !
-    time   = 0.0
-    tend   = 0.1
-    tio    = 0.0
-    dtio   = 5e-2
-    CFL    = 0.9
-    dt_fix = 1e-2
-    !
-    nu   = 0.e-2
-    !
-    !========================================
-    !
-    CALL Allocate_Var  ! allocate all variables
-    !
-    ! vectors for assembling the tridiagonal linear system
-    ALLOCATE( avec(IMAX,JMAX)   )  
-    ALLOCATE( avecj(IMAX,JMAX)  )  
-    ALLOCATE( bvec(IMAX,JMAX)   )
-    ALLOCATE( cvec(IMAX,JMAX)   )
-    ALLOCATE( cvecj(IMAX,JMAX)  )
-    ALLOCATE( rhs(IMAX, JMAX)   )
- 
-    !ALLOCATE( rhs(IMAX, JMAX) ) ! 2D, not sure, trying a different solution
-    !
+    xL     = -0.5   ! Left boundary for x coordinates
+    xR     = 0.5    ! Right boundary for y coordinates
+    ! Concerning y axys
+    JMAX   = 500    ! Max index for y coordinates
+    yD     = -0.5   ! Left boundary for y coordinates
+    yU     = 0.5    ! Right boundary for y coordinates
+    ! Initial Conditions
+    s      = 0.1    ! Initial condition
+    ! Concerning time
+    time   = 0.0    ! Starting of the computation time
+    tend   = 0.1    ! Ending of the computation time
+    tio    = 0.0    ! Time iterator for output file
+    dtio   = 5e-2   ! Time step for output file
+    CFL    = 0.9    ! CFL number for time step
+    dt_fix = 1e-2   ! Fixed time step for computation
+    nu     = 0.e-2  ! Kinematic viscosity coefficient, TODO we are never using this, why?
+    !==================================================================================================!
+    CALL Allocate_Var  ! Allocate all variables
+    !==================================================================================================!
+    ! Matrixes for assembling the tridiagonal linear system
+    !==================================================================================================!
+    ALLOCATE( amat  ( IMAX, JMAX ) )    ! Matrix a for i system
+    ALLOCATE( amatj ( IMAX, JMAX ) )    ! Matrix a for j system
+    ALLOCATE( bmat  ( IMAX, JMAX ) )    ! Matrix b for both systems
+    ALLOCATE( cmat  ( IMAX, JMAX ) )    ! Matrix c for i system
+    ALLOCATE( cmatj ( IMAX, JMAX ) )    ! Matrix c for j system
+    ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs 
+    !==================================================================================================!
     ! 1) Computational domain 
-    !
+    !==================================================================================================!
     WRITE(*,'(a)') ' | Building computational domain... '
-    !    
+    ! Domain on the x axys
     dx    = (xR - xL) / REAL(IMAX)
     dx2   = dx**2
     x(1)  = xL
-    !
-    dy    = (yU - yD) / REAL(IMAX)  ! 2D
-    dy2   = dy**2                   ! 2D
-    y(1)  = yD                      ! 2D
-    !    
+    ! Domain on the y axys
+    dy    = (yU - yD) / REAL(IMAX)
+    dy2   = dy**2
+    y(1)  = yD
+    !==================================================================================================!
     ! We decided to use two separates dimensions, IMAX and JMAX,
-    ! for x and y coords for more flexibility
+    ! for x and y coords, to offer more flexibility
+    !==================================================================================================!
     DO i = 1, IMAX
-      x(i+1) = x(i) + dx
-      xb(i)  = x(i) + dx/2.
+        x(i+1) = x(i) + dx
+        xb(i)  = x(i) + dx/2.
     ENDDO
-    DO j = 1, JMAX             ! 2D
-      y(j+1) = y(j) + dy       ! 2D
-      yb(j)  = y(j) + dy/2.    ! 2D
-    ENDDO
-    !
-    !---------------------------------------- 
-    !---------------------------------------- 
-    !
-    ! 2) Initial condition
-    !
-    WRITE(*,'(a)') ' | Assigning initial condition... '
-    !
-    ! 2.1) Free surface elevation (barycenters)
-    !
-    DO i = 1, IMAX
-      DO j = 1, JMAX
-        ! Gaussian profile
-        ! Note: it is correct to use xb and yb instead of x and y because x and y represents
-        ! the vertex coords for u and v, while xb and yb represents the barycenter coords
-        ! for eta.
-        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) )) * ( xb(i)**2 + yb(j)**2 ))
-      ENDDO
-    ENDDO
-    !---------------------------------------------
-    !
-    ! 2.1) Velocity, bottom and total water depth (interfaces)
-    !
-    !---------------------------------------------
-    ! Note: u is of dimension (IMAX + 1) * JMAX, while v is of dimension IMAX * (JMAX + 1)
-    ! Note: it is convenient to have two matrixes for b now, bu and bv
-    ! TODO think about a solution using a single matrix, for eample using a matrix of dimensions IMAX*2+1 * JMAX*2+1
-    !      and indices for both axis with step 2 (note the sparse form of the matrix, is it possible a better solution?)
-    ! By the way, at the moment I think the 2 vectors solution is faster and also lighter in memory terms
-    ! Same valuation values for H 
-    DO i = 1, IMAX + 1
-      DO j = 1, JMAX
-        u(i, j)  = 0.0      ! fluid at rest
-        bu(i, j) = 0.0      ! zero bottom elevation
-      ENDDO
-    ENDDO
-    DO i = 1, IMAX
-      DO j = 1, JMAX + 1
-        v(i, j)  = 0.0      ! fluid at rest
-        bv(i, j) = 0.0      ! zero bottom elevation
-      ENDDO
-    ENDDO
-    !
-    ! Total water depth
-    !
     DO j = 1, JMAX
-      ! Initialize first and last columns for Hu
-      Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-      Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
+        y(j+1) = y(j) + dy
+        yb(j)  = y(j) + dy/2.
+    ENDDO
+    !==================================================================================================!
+    ! 2) Initial condition
+    !==================================================================================================!
+    WRITE(*,'(a)') ' | Assigning initial condition... '
+    !==================================================================================================!
+    ! 2.1) Free surface elevation (barycenters)
+    !==================================================================================================!
+    DO i = 1, IMAX
+        DO j = 1, JMAX
+            !===========================================================================================!
+            ! Gaussian profile
+            !===========================================================================================!
+            ! Note: we use xb and yb instead of x and y because x and y represents the vertex
+            ! coords for u and v, while xb and yb represents the barycenter coords for eta
+            !===========================================================================================!
+            eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
+        ENDDO
+    ENDDO
+    !==================================================================================================!
+    ! 2.1) Velocity, bottom and total water depth (interfaces)
+    !==================================================================================================!
+    ! Note: u dimensions (IMAX + 1) * JMAX, while v dimensions are IMAX * (JMAX + 1)
+    !==================================================================================================!
+    DO i = 1, IMAX + 1
+        DO j = 1, JMAX
+            u(i, j)  = 0.0  ! Fluid at rest
+            bu(i, j) = 0.0  ! Zero bottom elevation
+        ENDDO
     ENDDO
     DO i = 1, IMAX
-      ! Initialize first and last rows for Hv
-      Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-      Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
+        DO j = 1, JMAX + 1
+            v(i, j)  = 0.0  ! Fluid at rest
+            bv(i, j) = 0.0  ! Zero bottom elevation
+        ENDDO
+    ENDDO
+    !==================================================================================================!
+    ! Total water depth
+    !==================================================================================================!
+    DO j = 1, JMAX
+        ! Initialize first and last columns for Hu
+        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
+    ENDDO
+    DO i = 1, IMAX
+        ! Initialize first and last rows for Hv
+        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
     ENDDO
     DO i = 2, IMAX
-      DO j = 1, JMAX
-        Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
-      ENDDO
+        DO j = 1, JMAX
+            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+        ENDDO
     ENDDO
-    DO j = 2, JMAX
-      DO i = 1, IMAX
-        Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
-      ENDDO
+    DO i = 1, IMAX
+        DO j = 2, JMAX
+            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+        ENDDO
     ENDDO
-    !
-    CALL DataOutput(0)  ! plot initial condition
+    !==================================================================================================!
+    ! Plot initial condition
+    !==================================================================================================!
+    CALL DataOutput(0)
     tio = tio + dtio
-    !---------------------------------------------
-    !
-    !---------------------------------------- 
-    !---------------------------------------- 
-    !
+    !==================================================================================================!
     ! 3) Computation: main loop in time
-    !
+    !==================================================================================================!
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' | START of the COMPUTATION '
     !
@@ -242,11 +222,12 @@ PROGRAM FS2D
            rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
           ENDDO
         ENDDO ! 2D
+        
         CALL CG(IMAX,eta,rhs)
       !
       ! 3.5) Solve the free surface equation
       !
-#ifdef CGM
+!#ifdef CGM
       !
       ! CONJUGATE GRADIENT METHOD
       !
@@ -262,7 +243,7 @@ PROGRAM FS2D
     
 
       !
-#endif      
+!#endif      
       !
       ! 3.4) Update the velocity (momentum equation)
       !
@@ -318,7 +299,7 @@ PROGRAM FS2D
     !
     CALL Deallocate_Var
     !
-    DEALLOCATE( avec,bvec,cvec, avecj,cvecj, rhs )
+    DEALLOCATE( amat,bmat,cmat, amatj,cmatj, rhs )
     !
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
@@ -337,8 +318,8 @@ SUBROUTINE matop2D(Ap,p,N)
     REAL     :: Ap(N,N), p(N,N)
     !
     INTEGER  :: i, j
-    REAL     :: ct,cs , avec, bvec, cvec
-    REAL     :: avecj , cvecj
+    REAL     :: ct,cs , amat, bmat, cmat
+    REAL     :: amatj , cmatj
     !------------------------------------------------------------!
     !
     ct = g*dt2/dx2  ! temporary coefficient
@@ -352,32 +333,32 @@ SUBROUTINE matop2D(Ap,p,N)
           endif  
           IF(i.EQ.1) THEN
              IF(j.EQ.1) THEN
-                !bvec    = 1. + ct * ( H(i+1) + H(i) )
-                bvec    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
-                !cvec    = - ct * H(i+1)
-                cvec    = - ct * Hu(i+1,j)                    ! 2D
-                cvecj   = - cs * Hv(i,j+1)                    ! 2D
+                !bmat    = 1. + ct * ( H(i+1) + H(i) )
+                bmat    = 1. + ct * ( Hu(i+1,j) + 0.0) + cs*( Hv(i,j+1) + 0.0 )
+                !cmat    = - ct * H(i+1)
+                cmat    = - ct * Hu(i+1,j)                    ! 2D
+                cmatj   = - cs * Hv(i,j+1)                    ! 2D
             
-                Ap(i,j) = bvec*p(i,j) + cvec*p(i,j)  + cvecj*p(i,j)        ! 2D
+                Ap(i,j) = bmat*p(i,j) + cmat*p(i,j)  + cmatj*p(i,j)        ! 2D
             ELSEIF(i.EQ.N) THEN  
                 ELSEIF(j.EQ.N) THEN 
-                    !avec    = - ct * H(i)
-                    avec    = - ct * Hu(i,j-1)                        ! 2D
-                    avecj   = - cs * Hv(i-1,j)                         ! 2D
-                    !bvec    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    
-                    bvec    = 1. + ct * ( 0.0 + Hu(i,j)) + cs*( 0.0 + Hv(i,j) )  ! 2D
+                    !amat    = - ct * H(i)
+                    amat    = - ct * Hu(i,j-1)                        ! 2D
+                    amatj   = - cs * Hv(i-1,j)                         ! 2D
+                    !bmat    = 1. + ct * ( 0.0 + Hu(i,j) )   ! 2D    
+                    bmat    = 1. + ct * ( 0.0 + Hu(i,j)) + cs*( 0.0 + Hv(i,j) )  ! 2D
                     
-                    Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j)           ! 2D
+                    Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j)           ! 2D
             ELSE 
-                !avec    = - ct * H(i)
-                avec    = - ct * Hu(i,j)                        ! 2D
-                avecj   = - cs * Hv(i,j)                        ! 2D
-                !bvec    = 1. + ct * ( H(i+1) + H(i) )
-                bvec    = 1. + ct * ( Hu(i+1,j) + Hu(i,j)) + cs*( Hv(i,j+1) + Hv(i,j) )  ! 2D
-                !cvec    = - ct * H(i+1)
-                cvec    = - ct * Hu(i+1,j)                    ! 2D
-                cvecj   = - cs * Hv(i,j+1)                    ! 2D
-                Ap(i,j) = avec*p(i-1,j) + avecj*p(i,j-1) + bvec*p(i,j) + cvec*p(i+1,j)  + cvec*p(i,j+1)         ! 2D
+                !amat    = - ct * H(i)
+                amat    = - ct * Hu(i,j)                        ! 2D
+                amatj   = - cs * Hv(i,j)                        ! 2D
+                !bmat    = 1. + ct * ( H(i+1) + H(i) )
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j)) + cs*( Hv(i,j+1) + Hv(i,j) )  ! 2D
+                !cmat    = - ct * H(i+1)
+                cmat    = - ct * Hu(i+1,j)                    ! 2D
+                cmatj   = - cs * Hv(i,j+1)                    ! 2D
+                Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j)  + cmat*p(i,j+1)         ! 2D
             
             ENDIF  
           ENDIF
