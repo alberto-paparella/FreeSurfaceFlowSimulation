@@ -3,6 +3,7 @@ HINT: search for TODO in the files to find things to check.
 In VarDef.f90:
 - Why not use a single matrix for barycenter coords?
 - Defined nu as kinematic viscosity coefficient, but never using it.
+	WRONG: we were using it when calculating time steps!
 - Found a commented chs, but just in this file. We don't need it, right?
 
 In main.f90:

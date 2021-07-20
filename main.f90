@@ -49,7 +49,7 @@ PROGRAM FS2D
     dtio   = 5e-2   ! Time step for output file
     CFL    = 0.9    ! CFL number for time step
     dt_fix = 1e-2   ! Fixed time step for computation
-    nu     = 0.e-2  ! Kinematic viscosity coefficient, TODO we are never using this, why?
+    nu     = 0.e-2  ! Kinematic viscosity coefficient
     !==================================================================================================!
     CALL Allocate_Var  ! Allocate all variables
     !==================================================================================================!
@@ -153,48 +153,65 @@ PROGRAM FS2D
     !==================================================================================================!
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' | START of the COMPUTATION '
-    !
+    !==================================================================================================!
     DO n = 1, NMAX
-      !
-      ! 3.1) Compute the time step
-      !
-      IF(time.GE.tend) THEN
-        EXIT    
-      ENDIF
-      !
-      !umax = MAXVAL( ABS(u) + SQRT(g*H))  ! fully explicit time step
-      umax = MAXVAL( ABS(u) )             ! semi-implicit time step
-      dt   = MIN( dt_fix, CFL / ( (umax+1e-14)/dx + 2.*nu/dx2 ) )
-      dt2   = dt**2
-      IF((time+dt).GT.tend) THEN
-        dt  = tend - time   
-        tio = tend
-      ENDIF    
-      IF((time+dt).GT.tio) THEN
-        dt = tio - time
-      ENDIF
-      !
-      ! 3.2) Compute the operator Fu
-      !
-      ! BC: no-slip wall
-      Fu(1,1)      = u(1,1)   !2D
-
-      !Fu(IMAX+1) = u(IMAX+1)
-      Fu(IMAX+1,JMAX) = u(IMAX+1,JMAX)  ! 2D    !qui mi crea una eccezione
-      !
-      !is not needed because our formula does not include viscosity,
-      !so we have to take the convention equation, with a being our velocity u,
-      !and add and subtract the other velocity, depending on whether we take information
-      !against redirection, propagation of information
-      DO i = 2, IMAX
-        DO j = 2, JMAX          ! 2D
-            ! au = ABS(u(i))
-            !au = ABS(u(i,j))    ! 2D
-            ! Explicit upwind
-            Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D to try, if it doesn't work you have to find another formula with the upwind method
-
-        ENDDO   ! 2D
-      ENDDO  
+        !==============================================================================================!
+        ! 3.1) Compute the time step
+        !==============================================================================================!
+        IF( time.GE.tend ) THEN
+            EXIT    
+        ENDIF
+        !==============================================================================================!
+        umax = MAXVAL( ABS(u) )             ! semi-implicit time step
+        dt   = MIN( dt_fix, CFL / ( ( umax + 1e-14 ) / dx + 2. * nu / dx2 ) )
+        dt2   = dt**2
+        IF( ( time + dt ).GT.tend ) THEN
+            dt  = tend - time   
+            tio = tend
+        ENDIF    
+        IF( ( time + dt ).GT.tio ) THEN
+            dt = tio - time
+        ENDIF
+        !==============================================================================================!
+        ! 3.2) Compute the operator Fu
+        !==============================================================================================!
+        ! BC: no-slip wall
+        ! First row and last row initialized to zeros
+        Fu( 1      , : ) = 0.0
+        Fu( IMAX+1 , : ) = 0.0
+        DO i = 2, IMAX
+            DO j = 1, JMAX
+                au = ABS( u(i,j) )
+                ! Explicit upwind
+                Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &
+                    + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                    + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+            ENDDO
+        ENDDO
+        !==============================================================================================!
+        ! I'm pretty sure the following code (old code, 20-07) is wrong
+        !==============================================================================================!
+        ! BC: no-slip wall
+        !Fu(1,1)      = u(1,1)
+        !Fu(IMAX+1,JMAX) = u(IMAX+1,JMAX)  ! 2D    !qui mi crea una eccezione
+        !
+        !is not needed because our formula does not include viscosity,
+        !so we have to take the convention equation, with a being our velocity u,
+        !and add and subtract the other velocity, depending on whether we take information
+        !against redirection, propagation of information
+        !DO i = 2, IMAX
+            !DO j = 2, JMAX          ! 2D
+                ! au = ABS(u(i))
+                !au = ABS(u(i,j))    ! 2D
+                ! Explicit upwind
+                ! NB: the next line will always return eta(i,j), because it substract from it
+                !   a multiplication by 0
+                !Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D to try, if it doesn't work you have to find another formula with the upwind method
+            !ENDDO   ! 2D
+        !ENDDO
+        !==============================================================================================!
+                
+                
       ! 3.3) Compute the operator Fv
       !
       ! BC: no-slip wall

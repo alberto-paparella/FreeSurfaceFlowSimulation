@@ -52,7 +52,7 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: Hv (:, :)    ! Total wather depth for v mesh
     REAL, ALLOCATABLE   :: bu (:, :)    ! Bottom elevation for u mesh
     REAL, ALLOCATABLE   :: bv (:, :)    ! Bottom elevation for v mesh
-    REAL                :: nu           ! kinematic viscosity coefficient, TODO we are never using this, why?
+    REAL                :: nu           ! kinematic viscosity coefficient
     REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system 
     !==================================================================================================!
     ! Concerning time
