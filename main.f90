@@ -20,7 +20,7 @@ PROGRAM FS2D
     IMPLICIT NONE
     !==================================================================================================!
     INTEGER            :: i, j, n
-    REAL               :: umax, au, s0, ct, cs , a , b
+    REAL               :: umax, au, av, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
     !==================================================================================================!
     WRITE(*,'(a)') ' | ================================================================== | '
@@ -184,13 +184,32 @@ PROGRAM FS2D
                 au = ABS( u(i,j) )
                 ! Explicit upwind
                 Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &
-                    + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                    + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+                        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)
             ENDDO
         ENDDO
         !==============================================================================================!
-        ! I'm pretty sure the following code (old code, 20-07) is wrong
+        ! 3.3) Compute the operator Fv
         !==============================================================================================!
+        ! BC: no-slip wall
+        ! First column and last column initialized to zeros
+        Fv( : , 1      ) = 0.0
+        Fv( : , JMAX+1 ) = 0.0
+        DO i = 1, IMAX
+            DO j = 2, JMAX
+                av = ABS( v(i,j) )
+                ! Explicit upwind
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dx2 ) ) * v(i,j)   &
+                        + dt * ( nu/dx2 + (av-v(i,j))/(2.*dx) ) * v(i,j+1) &
+                        + dt * ( nu/dx2 + (av+v(i,j))/(2.*dx) ) * v(i,j-1)
+            ENDDO
+        ENDDO      
+        !==============================================================================================!
+        ! I'm pretty sure the following code (old code for 3.2 and 3.3, 20-07) is wrong
+        !==============================================================================================!
+        !
+        ! 3.2) Compute the operator Fu
+        !
         ! BC: no-slip wall
         !Fu(1,1)      = u(1,1)
         !Fu(IMAX+1,JMAX) = u(IMAX+1,JMAX)  ! 2D    !qui mi crea una eccezione
@@ -208,30 +227,22 @@ PROGRAM FS2D
                 !   a multiplication by 0
                 !Fu(i,j) = (eta(i,j)) - u(i+1,j)*(dt/dx * ( eta(i,j) - eta(i,j) ) )    ! 2D to try, if it doesn't work you have to find another formula with the upwind method
             !ENDDO   ! 2D
+        !ENDDO                
+        !  
+        ! 3.3) Compute the operator Fv
+        !
+        ! BC: no-slip wall
+        !Fv(1, 1)           = v(1,1)
+        !Fv(IMAX,JMAX+1) = v(IMAX,JMAX+1)
+        !DO i = 2, IMAX
+            !DO j = 2, JMAX
+                ! Explicit upwind
+                !Fv(i,j) = (eta(i,j)) - v(i,j+1)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
+            !ENDDO   ! 2D
         !ENDDO
         !==============================================================================================!
-                
-                
-      ! 3.3) Compute the operator Fv
-      !
-      ! BC: no-slip wall
-      !Fu(1)      = u(1)
-      Fv(1, 1)           = v(1,1)  ! 2D
-      
-      !Fu(IMAX+1) = u(IMAX+1)
-      Fv(IMAX,JMAX+1) = v(IMAX,JMAX+1)  ! 2D
-        DO i = 2, IMAX
-            DO j = 2, JMAX        ! 2D
-            ! au = ABS(u(i))
-            !au = ABS(u(i,j))    ! 2D
-            ! Explicit upwind
-            Fv(i,j) = (eta(i,j)) - v(i,j+1)*(dt/dy * ( eta(i,j) - eta(i,j) )  )   ! 2D to try, if it doesn't work you have to find another formula with the upwind method
-
-            ENDDO   ! 2D
-        ENDDO
-        !
         ! 3.4) Solve the system for the pressure
-        !
+        !==============================================================================================!
         !compute the rhs
         DO i = 1, IMAX    ! 2D
           DO j = 1, JMAX
