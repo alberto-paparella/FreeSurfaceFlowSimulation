@@ -199,7 +199,7 @@ PROGRAM FS2D
             DO j = 2, JMAX
                 av = ABS( v(i,j) )
                 ! Explicit upwind
-                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dx2 ) ) * v(i,j)   &
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dx2 ) ) * v(i,j)     &
                         + dt * ( nu/dx2 + (av-v(i,j))/(2.*dx) ) * v(i,j+1) &
                         + dt * ( nu/dx2 + (av+v(i,j))/(2.*dx) ) * v(i,j-1)
             ENDDO
@@ -241,38 +241,19 @@ PROGRAM FS2D
             !ENDDO   ! 2D
         !ENDDO
         !==============================================================================================!
-        ! 3.4) Solve the system for the pressure
+        ! 3.4) Solve the free surface equation
         !==============================================================================================!
-        !compute the rhs
-        DO i = 1, IMAX    ! 2D
-          DO j = 1, JMAX
-            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
-          ENDDO
-        ENDDO ! 2D
-        
-        CALL CG(IMAX,eta,rhs)
-      !
-      ! 3.5) Solve the free surface equation
-      !
-!#ifdef CGM
-      !
-      ! CONJUGATE GRADIENT METHOD
-      !
-      DO j = 1, JMAX    ! 2D
-          DO i = 1, IMAX
-            !rhs(i) = eta(i) - dt/dx * ( H(i+1)*Fu(i+1) - H(i)*Fu(i) )
-           rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j)) + dt/dx*( Hu(i, j)*Fu(i,j) ) - dt/dy * (Hv(i,j+1)*Fv(i,j+1) ) + dt/dy*(Hv(i,j)*Fv(i,j))
-          ENDDO
-          !CALL CG(IMAX,eta,rhs)
-      ENDDO ! 2D
-      CALL CG(IMAX,eta,rhs) ! 2D 
-      !
-    
-
-      !
-!#endif      
-      !
+        ! CONJUGATE GRADIENT METHOD
+        !==============================================================================================!
+        DO i = 1, IMAX
+            DO j = 1, JMAX
+                rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
+                                    - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
+            ENDDO
+        ENDDO
+        ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
+        CALL CG(IMAX,eta,rhs)      
+        !==============================================================================================!
       ! 3.4) Update the velocity (momentum equation)
       !
       ct = g*dt/dx  ! temporary coefficient
@@ -336,8 +317,61 @@ PROGRAM FS2D
     
     PAUSE
 END PROGRAM FS2D 
-  
+
+!======================================================================================================!
+! matop2D should calculate matrix-matrix product.
+! However, at the moment it is a changed version of matop1D considering 2 dimensions,
+! and there are some problems with cases (i = 1 and j != 1, i != 1 and j = 1, and expecially
+! i = 1 and j = IMAX, and i = IMAX and j = 1.
+!======================================================================================================!
 SUBROUTINE matop2D(Ap,p,N)  
+    !==================================================================================================!
+    USE VarDef_mod
+    IMPLICIT NONE
+    !==================================================================================================!
+    INTEGER  :: N 
+    REAL     :: Ap(N,N), p(N,N)
+    !==================================================================================================!
+    INTEGER  :: i, j
+    REAL     :: ct, cs , amat, bmat, cmat
+    REAL     :: amatj , cmatj
+    !==================================================================================================!
+    ct = g*dt**2/dx2    ! Temporary coefficient
+    cs = g*dt**2/dy2
+    !==================================================================================================!
+    DO j = 1, IMAX  ! This time we consider IMAX equal to JMAX
+        DO i = 1, IMAX
+            if(i.eq.250.OR.j.eq.250) then
+                continue
+            endif
+            IF(i.EQ.1.OR.j.EQ.1) THEN
+                bmat    = 1. + ct * ( Hu(i+1,j) + 0.0 ) + cs * ( Hv(i,j+1) + 0.0 )
+                cmat    = - ct * Hu(i+1,j)
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
+            ELSEIF(i.EQ.IMAX.OR.j.EQ.IMAX) THEN  
+                amat    = - ct * Hu(i,j)
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( 0.0 + Hu(i,j) ) + cs * ( 0.0 + Hv(i,j) )
+                Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j) 
+            ELSE  
+                amat    = - ct * Hu(i,j)
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i+1,j) + Hv(i,j) )
+                cmat    = - ct * Hu(i+1,j)
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
+            ENDIF  
+            !
+        ENDDO  
+        !
+    ENDDO
+END SUBROUTINE matop2D
+
+!======================================================================================================!
+! Old version of matop2D (20-07)
+!======================================================================================================!
+SUBROUTINE OLDmatop2D(Ap,p,N)  
     !------------------------------------------------------------!
     USE VarDef_mod
     IMPLICIT NONE
@@ -346,14 +380,12 @@ SUBROUTINE matop2D(Ap,p,N)
     REAL     :: Ap(N,N), p(N,N)
     !
     INTEGER  :: i, j
-    REAL     :: ct,cs , amat, bmat, cmat
+    REAL     :: ct, cs , amat, bmat, cmat
     REAL     :: amatj , cmatj
     !------------------------------------------------------------!
     !
     ct = g*dt2/dx2  ! temporary coefficient
     cs = g*dt2/dy2
-    !is to be fixed, after solving the system to calculate eta
-
     DO i = 2, N
       DO j = 2, N   ! 2D
           if(i.eq.250) then
@@ -398,4 +430,43 @@ SUBROUTINE matop2D(Ap,p,N)
   
     
     !
-END SUBROUTINE matop2D
+    END SUBROUTINE OLDmatop2D
+
+!======================================================================================================!
+! Matrix-vector product
+!======================================================================================================!
+SUBROUTINE matop1D(Ap,p,N) 
+    !==================================================================================================!
+    USE VarDef_mod
+    IMPLICIT NONE
+    !==================================================================================================!
+    INTEGER  :: N
+    REAL     :: Ap(N), p(N)
+    !==================================================================================================!
+    INTEGER  :: i
+    REAL     :: ct, av, bv, cv
+    !==================================================================================================!
+    ct = g*dt**2/dx2  ! temporary coefficient
+    !==================================================================================================!
+    DO i = 1, IMAX
+        if(i.eq.250) then
+            continue
+        endif  
+        IF(i.EQ.1) THEN
+            bv    = 1. + ct * ( H(i+1) + 0.0 )
+            cv    = - ct * H(i+1)
+            Ap(i) = bv*p(i) + cv*p(i+1)
+        ELSEIF(i.EQ.IMAX) THEN  
+            av    = - ct * H(i)
+            bv    = 1. + ct * ( 0.0 + H(i) )
+            Ap(i) = av*p(i-1) + bv*p(i) 
+        ELSE  
+            av    = - ct * H(i)
+            bv    = 1. + ct * ( H(i+1) + H(i) )
+            cv    = - ct * H(i+1)
+            Ap(i) = av*p(i-1) + bv*p(i) + cv*p(i+1)
+        ENDIF  
+    !==================================================================================================!
+    ENDDO  
+    !==================================================================================================!
+END SUBROUTINE matop1D
