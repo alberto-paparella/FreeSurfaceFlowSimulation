@@ -11,3 +11,6 @@ In main.f90:
    and indices for both axis with step 2 (note the sparse form of the matrix, is it possible a better solution?).
    By the way, at the moment I think the 2 vectors solution is faster and also lighter in memory terms.
    (Reference: 2.1) Velocity, bottom and total water depth (interfaces)).
+
+In LinSystem.f90:
+ - Conjugate gradient do not converge. The problem could also be in matop2D in main.f90.

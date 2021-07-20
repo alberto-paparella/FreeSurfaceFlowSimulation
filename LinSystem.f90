@@ -41,7 +41,7 @@ SUBROUTINE CG(N,x,b)
         IF(SQRT(alphak).LT.tol) THEN
             WRITE(*,'(a,i3,a,e15.7)') ' |   CG iter: ', k, ' CG res: ', SQRT(alphak)
             RETURN
-        ENDIF    
+        ENDIF
         !==============================================================================================!
         CALL matop2D(Ap,p,N)    
         pAp    = SUM(p*Ap)        
@@ -53,12 +53,11 @@ SUBROUTINE CG(N,x,b)
         alphak = alpha
         !==============================================================================================!
     ENDDO   ! k cycle 
-    !
+    !==================================================================================================!
+    ! TODO our problem is that our conjugate gradient do not converge.
     IF(k.GE.KMAX) THEN
         PRINT *, ' ERROR. Conjugate gradient did not converge! ', SQRT(alphak)
         STOP     
     ENDIF
-    ! 
-    END SUBROUTINE CG  
-    
-  
+    !==================================================================================================!
+    END SUBROUTINE CG

@@ -344,20 +344,63 @@ SUBROUTINE matop2D(Ap,p,N)
             if(i.eq.250.OR.j.eq.250) then
                 continue
             endif
-            IF(i.EQ.1.OR.j.EQ.1) THEN
+            ! Case (1,1)
+            IF(i.EQ.1.AND.j.EQ.1) THEN
                 bmat    = 1. + ct * ( Hu(i+1,j) + 0.0 ) + cs * ( Hv(i,j+1) + 0.0 )
                 cmat    = - ct * Hu(i+1,j)
                 cmatj   = - cs * Hv(i,j+1)
                 Ap(i,j) = bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
+            ! Case (1,IMAX)
+            ELSEIF(i.EQ.1.AND.j.EQ.IMAX) THEN
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmat    = - ct * Hu(i+1,j)
+                Ap(i,j) = amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j)
+            ! Case (IMAX,1)
+            ELSEIF(i.EQ.IMAX.AND.j.EQ.1) THEN
+                amat    = - ct * Hu(i,j)
+                bmat    = 1. + ct * ( 0.0 + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = amat*p(i-1,j) + bmat*p(i,j) + cmatj*p(i,j+1)
+            ! Case (IMAX,IMAX)
             ELSEIF(i.EQ.IMAX.OR.j.EQ.IMAX) THEN  
                 amat    = - ct * Hu(i,j)
                 amatj   = - cs * Hv(i,j)
                 bmat    = 1. + ct * ( 0.0 + Hu(i,j) ) + cs * ( 0.0 + Hv(i,j) )
-                Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j) 
+                Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j)
+            ! Case (1,[2,IMAX-1])
+            ELSEIF(i.EQ.1) THEN
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmat    = - ct * Hu(i+1,j)
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
+            ! Case ([2,IMAX-1],1)
+            ELSEIF(j.EQ.1) THEN
+                amat    = - ct * Hu(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmat    = - ct * Hu(i+1,j)
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = amat*p(i-1,j) +  bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
+            ! Case (IMAX,[2,IMAX-1])            
+            ELSEIF(i.EQ.IMAX) THEN
+                amat    = - ct * Hu(i,j)
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmatj   = - cs * Hv(i,j+1)
+                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmatj*p(i,j+1)
+            ! Case ([2,IMAX-1],IMAX)
+            ELSEIF(j.EQ.JMAX) THEN
+                amat    = - ct * Hu(i,j)
+                amatj   = - cs * Hv(i,j)
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
+                cmat    = - ct * Hu(i+1,j)
+                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j)
+            ! Case ([2,IMAX-1],[2,IMAX-1])
             ELSE  
                 amat    = - ct * Hu(i,j)
                 amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i+1,j) + Hv(i,j) )
+                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
                 cmat    = - ct * Hu(i+1,j)
                 cmatj   = - cs * Hv(i,j+1)
                 Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
@@ -431,42 +474,3 @@ SUBROUTINE OLDmatop2D(Ap,p,N)
     
     !
     END SUBROUTINE OLDmatop2D
-
-!======================================================================================================!
-! Matrix-vector product
-!======================================================================================================!
-SUBROUTINE matop1D(Ap,p,N) 
-    !==================================================================================================!
-    USE VarDef_mod
-    IMPLICIT NONE
-    !==================================================================================================!
-    INTEGER  :: N
-    REAL     :: Ap(N), p(N)
-    !==================================================================================================!
-    INTEGER  :: i
-    REAL     :: ct, av, bv, cv
-    !==================================================================================================!
-    ct = g*dt**2/dx2  ! temporary coefficient
-    !==================================================================================================!
-    DO i = 1, IMAX
-        if(i.eq.250) then
-            continue
-        endif  
-        IF(i.EQ.1) THEN
-            bv    = 1. + ct * ( H(i+1) + 0.0 )
-            cv    = - ct * H(i+1)
-            Ap(i) = bv*p(i) + cv*p(i+1)
-        ELSEIF(i.EQ.IMAX) THEN  
-            av    = - ct * H(i)
-            bv    = 1. + ct * ( 0.0 + H(i) )
-            Ap(i) = av*p(i-1) + bv*p(i) 
-        ELSE  
-            av    = - ct * H(i)
-            bv    = 1. + ct * ( H(i+1) + H(i) )
-            cv    = - ct * H(i+1)
-            Ap(i) = av*p(i-1) + bv*p(i) + cv*p(i+1)
-        ENDIF  
-    !==================================================================================================!
-    ENDDO  
-    !==================================================================================================!
-END SUBROUTINE matop1D
