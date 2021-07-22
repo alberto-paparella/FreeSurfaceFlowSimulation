@@ -52,7 +52,7 @@ SUBROUTINE CG(N,x,b)
         p      = r + alpha/alphak * p
         alphak = alpha
         !==============================================================================================!
-    ENDDO   ! k cycle 
+    ENDDO   ! k cycle
     !==================================================================================================!
     ! TODO our problem is that our conjugate gradient do not converge.
     IF(k.GE.KMAX) THEN

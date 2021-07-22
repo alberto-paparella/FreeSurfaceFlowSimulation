@@ -183,9 +183,13 @@ PROGRAM FS2D
             DO j = 1, JMAX
                 au = ABS( u(i,j) )
                 ! Explicit upwind
-                Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &
-                        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+                ! In our case, nu = 0
+                !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
+                !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
+                !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
+                Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
             ENDDO
         ENDDO
         !==============================================================================================!
@@ -199,9 +203,9 @@ PROGRAM FS2D
             DO j = 2, JMAX
                 av = ABS( v(i,j) )
                 ! Explicit upwind
-                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dx2 ) ) * v(i,j)     &
-                        + dt * ( nu/dx2 + (av-v(i,j))/(2.*dx) ) * v(i,j+1) &
-                        + dt * ( nu/dx2 + (av+v(i,j))/(2.*dx) ) * v(i,j-1)
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
             ENDDO
         ENDDO      
         !==============================================================================================!
@@ -252,7 +256,7 @@ PROGRAM FS2D
             ENDDO
         ENDDO
         ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
-        CALL CG(IMAX,eta,rhs)      
+        CALL CG(IMAX,eta,rhs)
         !==============================================================================================!
       ! 3.4) Update the velocity (momentum equation)
       !
@@ -324,7 +328,7 @@ END PROGRAM FS2D
 ! and there are some problems with cases (i = 1 and j != 1, i != 1 and j = 1, and expecially
 ! i = 1 and j = IMAX, and i = IMAX and j = 1.
 !======================================================================================================!
-SUBROUTINE matop2D(Ap,p,N)  
+SUBROUTINE matop2D(Ap,p,N)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
@@ -404,7 +408,7 @@ SUBROUTINE matop2D(Ap,p,N)
                 cmat    = - ct * Hu(i+1,j)
                 cmatj   = - cs * Hv(i,j+1)
                 Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
-            ENDIF  
+            ENDIF
             !
         ENDDO  
         !
