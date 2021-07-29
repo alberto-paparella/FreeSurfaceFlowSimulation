@@ -33,11 +33,11 @@ PROGRAM FS2D
     !==================================================================================================!
     TestName = 'Gaussian_test'
     ! Concerning x axys
-    IMAX   = 500    ! Max index for x coordinates
+    IMAX   = 250    ! Max index for x coordinates
     xL     = -0.5   ! Left boundary for x coordinates
     xR     = 0.5    ! Right boundary for y coordinates
     ! Concerning y axys
-    JMAX   = 500    ! Max index for y coordinates
+    JMAX   = 250    ! Max index for y coordinates
     yD     = -0.5   ! Left boundary for y coordinates
     yU     = 0.5    ! Right boundary for y coordinates
     ! Initial Conditions
@@ -177,8 +177,8 @@ PROGRAM FS2D
         !==============================================================================================!
         ! BC: no-slip wall
         ! First row and last row initialized to zeros
-        Fu( 1      , : ) = 0.0
-        Fu( IMAX+1 , : ) = 0.0
+        Fu( 1      , : ) = Fu(1,:)
+        Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
         DO i = 2, IMAX
             DO j = 1, JMAX
                 au = ABS( u(i,j) )
@@ -197,8 +197,8 @@ PROGRAM FS2D
         !==============================================================================================!
         ! BC: no-slip wall
         ! First column and last column initialized to zeros
-        Fv( : , 1      ) = 0.0
-        Fv( : , JMAX+1 ) = 0.0
+        Fv( : , 1      ) = Fv(:,1)
+        Fv( : , JMAX+1 ) = Fv(:,JMAX+1)
         DO i = 1, IMAX
             DO j = 2, JMAX
                 av = ABS( v(i,j) )
@@ -312,7 +312,7 @@ PROGRAM FS2D
     !
     CALL Deallocate_Var
     !
-    DEALLOCATE( amat,bmat,cmat, amatj,cmatj, rhs )
+    DEALLOCATE( amat,bmat,cmat, amatj,cmatj )
     !
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '

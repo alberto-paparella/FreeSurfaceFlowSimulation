@@ -57,7 +57,8 @@ SUBROUTINE CG(N,x,b)
     ! TODO our problem is that our conjugate gradient do not converge.
     IF(k.GE.KMAX) THEN
         PRINT *, ' ERROR. Conjugate gradient did not converge! ', SQRT(alphak)
-        STOP     
+        PRINT *, k
+        !STOP     
     ENDIF
     !==================================================================================================!
     END SUBROUTINE CG
