@@ -13,13 +13,13 @@ IMAX = fscanf(FileID,'%d');
 % Read data
 x   = fscanf(FileID,'%f \n',IMAX);
 eta = fscanf(FileID,'%f \n',IMAX);
-u   = fscanf(FileID,'%f \n',IMAX);
+u   = fscanf(FileID,'%f \n',IMAX,IMAX);
 
 % Plot data
 figure(1);
-plot(x,eta,'o')
+mesh(x,eta,'o')
 title('Free surface elevation')
 
 figure(2);
-plot(x,u,'o')
+mesh(x,u,'o')
 title('Velocity')

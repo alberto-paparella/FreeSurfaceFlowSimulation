@@ -14,3 +14,6 @@ In main.f90:
 
 In LinSystem.f90:
  - Conjugate gradient do not converge. The problem could also be in matop2D in main.f90.
+
+As for the matlab file, you have to make loops that read what you write in the .dat file and save everything in arrays/matrices. 
+To plot, use the surf or mesh function
