@@ -26,7 +26,7 @@
     CHARACTER(LEN=10)   :: citer
     CHARACTER(LEN=200)  :: IOFileName
     !==================================================================================================!
-    WRITE(citer,'(I4.4)') timestep                        ! Convert iteration number to string
+    WRITE(citer,'(I8.8)') timestep                        ! Convert iteration number to string
     IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'.dat' ! Name of output file
     DataUnit   = 100                                      ! Unit for output file
     !==================================================================================================!

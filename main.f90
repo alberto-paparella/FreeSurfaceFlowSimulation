@@ -33,11 +33,11 @@ PROGRAM FS2D
     !==================================================================================================!
     TestName = 'Gaussian_test'
     ! Concerning x axys
-    IMAX   = 250    ! Max index for x coordinates
+    IMAX   = 500    ! Max index for x coordinates
     xL     = -0.5   ! Left boundary for x coordinates
     xR     = 0.5    ! Right boundary for y coordinates
     ! Concerning y axys
-    JMAX   = 250    ! Max index for y coordinates
+    JMAX   = 500    ! Max index for y coordinates
     yD     = -0.5   ! Left boundary for y coordinates
     yU     = 0.5    ! Right boundary for y coordinates
     ! Initial Conditions
@@ -177,37 +177,39 @@ PROGRAM FS2D
         !==============================================================================================!
         ! BC: no-slip wall
         ! First row and last row initialized to zeros
-        Fu( 1      , : ) = Fu(1,:)
-        Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
-        DO i = 2, IMAX
-            DO j = 1, JMAX
-                au = ABS( u(i,j) )
+        !Fu( 1      , : ) = Fu(1,:)
+        !Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
+        Fu = u
+        !DO i = 2, IMAX
+            !DO j = 1, JMAX
+                !au = ABS( u(i,j) )
                 ! Explicit upwind
                 ! In our case, nu = 0
                 !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
                 !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
                 !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
-                Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
-                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
-            ENDDO
-        ENDDO
+                !Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                 !       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                  !      + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+            !ENDDO
+        !ENDDO
         !==============================================================================================!
         ! 3.3) Compute the operator Fv
         !==============================================================================================!
         ! BC: no-slip wall
         ! First column and last column initialized to zeros
-        Fv( : , 1      ) = Fv(:,1)
-        Fv( : , JMAX+1 ) = Fv(:,JMAX+1)
-        DO i = 1, IMAX
-            DO j = 2, JMAX
-                av = ABS( v(i,j) )
+        !Fv( : , 1      ) = Fv(:,1)
+        !Fv( : , JMAX+1 ) = Fv(:,JMAX+1)
+        Fv = v
+        !DO i = 1, IMAX
+        !    DO j = 2, JMAX
+        !        av = ABS( v(i,j) )
                 ! Explicit upwind
-                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
-            ENDDO
-        ENDDO
+                !Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                !        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                !        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+            !ENDDO
+        !ENDDO
         !==============================================================================================!
         ! 3.4) Solve the free surface equation
         !==============================================================================================!
@@ -221,6 +223,9 @@ PROGRAM FS2D
         ENDDO
         ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
         CALL CG(IMAX,eta,rhs)
+        
+        
+        
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
@@ -241,11 +246,34 @@ PROGRAM FS2D
             DO j = 2, JMAX
                 v(i,j) = Fu(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
-        ENDDO 
+        ENDDO
         !==============================================================================================!
+        ! 3.6) Update total water depth
+        !==============================================================================================!
+        DO j = 1, JMAX
+            ! Initialize first and last columns for Hu
+            Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+            Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
+        ENDDO
+        DO i = 1, IMAX
+            ! Initialize first and last rows for Hv
+            Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+            Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
+        ENDDO
+        DO i = 2, IMAX
+            DO j = 1, JMAX
+                Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        DO i = 1, IMAX
+            DO j = 2, JMAX
+                Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        !==========================================================================================!
         time = time + dt  ! Update time
-        !==============================================================================================!
-        ! 3.6) Eventually plot the results
+        !==========================================================================================!
+        ! 3.7) Eventually plot the results
         IF(ABS(time-tio).LT.1e-12) THEN
             WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
             CALL DataOutput(n)
@@ -267,8 +295,8 @@ PROGRAM FS2D
     WRITE(*,'(a)') ' | ====================================================== | '
     !==============================================================================================!    
     PAUSE
+!======================================================================================================!
 END PROGRAM FS2D
-
 !======================================================================================================!
 SUBROUTINE matop2D(Ap,p,N)
     !==================================================================================================!
@@ -279,80 +307,41 @@ SUBROUTINE matop2D(Ap,p,N)
     REAL     :: Ap(N,N), p(N,N)
     !==================================================================================================!
     INTEGER  :: i, j
-    REAL     :: ct, cs , amat, bmat, cmat
-    REAL     :: amatj , cmatj
+    REAL     :: cx, cy
     !==================================================================================================!
-    ct = g*dt**2/dx2    ! Temporary coefficient
-    cs = g*dt**2/dy2
-    !==================================================================================================!
-    DO j = 1, IMAX  ! This time we consider IMAX equal to JMAX
-        DO i = 1, IMAX
-            if(i.eq.250.OR.j.eq.250) then
-                continue
-            endif
-            ! Case (1,1)
-            IF(i.EQ.1.AND.j.EQ.1) THEN
-                bmat    = 1. + ct * ( Hu(i+1,j) + 0.0 ) + cs * ( Hv(i,j+1) + 0.0 )
-                cmat    = - ct * Hu(i+1,j)
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
-            ! Case (1,IMAX)
-            ELSEIF(i.EQ.1.AND.j.EQ.IMAX) THEN
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmat    = - ct * Hu(i+1,j)
-                Ap(i,j) = amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j)
-            ! Case (IMAX,1)
-            ELSEIF(i.EQ.IMAX.AND.j.EQ.1) THEN
-                amat    = - ct * Hu(i,j)
-                bmat    = 1. + ct * ( 0.0 + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = amat*p(i-1,j) + bmat*p(i,j) + cmatj*p(i,j+1)
-            ! Case (IMAX,IMAX)
-            ELSEIF(i.EQ.IMAX.OR.j.EQ.IMAX) THEN  
-                amat    = - ct * Hu(i,j)
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( 0.0 + Hu(i,j) ) + cs * ( 0.0 + Hv(i,j) )
-                Ap(i,j) = amat*p(i-1,j) + amatj*p(i,j-1) + bmat*p(i,j)
-            ! Case (1,[2,IMAX-1])
-            ELSEIF(i.EQ.1) THEN
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmat    = - ct * Hu(i+1,j)
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
-            ! Case ([2,IMAX-1],1)
-            ELSEIF(j.EQ.1) THEN
-                amat    = - ct * Hu(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmat    = - ct * Hu(i+1,j)
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = amat*p(i-1,j) +  bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
-            ! Case (IMAX,[2,IMAX-1])            
-            ELSEIF(i.EQ.IMAX) THEN
-                amat    = - ct * Hu(i,j)
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmatj*p(i,j+1)
-            ! Case ([2,IMAX-1],IMAX)
-            ELSEIF(j.EQ.JMAX) THEN
-                amat    = - ct * Hu(i,j)
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmat    = - ct * Hu(i+1,j)
-                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j)
-            ! Case ([2,IMAX-1],[2,IMAX-1])
-            ELSE  
-                amat    = - ct * Hu(i,j)
-                amatj   = - cs * Hv(i,j)
-                bmat    = 1. + ct * ( Hu(i+1,j) + Hu(i,j) ) + cs * ( Hv(i,j+1) + Hv(i,j) )
-                cmat    = - ct * Hu(i+1,j)
-                cmatj   = - cs * Hv(i,j+1)
-                Ap(i,j) = amat*p(i-1,j) +  amatj*p(i,j-1) + bmat*p(i,j) + cmat*p(i+1,j) + cmatj*p(i,j+1)
-            ENDIF
-            !
-        ENDDO  
-        !
+    cx = g*dt**2/dx2    ! Temporary coefficient
+    cy = g*dt**2/dy2
+    !==================================================================================================!	
+	! 1) Diagonal term
+    !==================================================================================================!	
+	Ap = p
+    !==================================================================================================!	
+	! 2) Fluxes in x-direction
+    !==================================================================================================!	
+	DO j = 1, N
+		DO i = 1, N
+			IF(i.EQ.1) THEN
+				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - 0.0 )
+			ELSEIF(i.EQ.N) THEN  
+				Ap(i,j) = Ap(i,j) - cx * ( 0.0 - Hu(i,j)*(p(i,j)-p(i-1,j)) )
+			ELSE  
+				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - Hu(i,j)*(p(i,j)-p(i-1,j)) )
+			ENDIF 
+		ENDDO
     ENDDO
+    !==================================================================================================!	
+    ! 3) Fluxes in y-direction
+    !==================================================================================================!	
+	DO j = 1, N
+		DO i = 1, N
+			IF(j.EQ.1) THEN
+				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - 0.0 )
+			ELSEIF(j.EQ.N) THEN  
+				Ap(i,j) = Ap(i,j) - cy * ( 0.0 - Hv(i,j)*(p(i,j)-p(i,j-1)) )
+			ELSE  
+				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - Hv(i,j)*(p(i,j)-p(i,j-1)) )
+			ENDIF 
+		ENDDO
+    ENDDO    
+!======================================================================================================!
 END SUBROUTINE matop2D
