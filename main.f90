@@ -174,42 +174,42 @@ PROGRAM FS2D
         ENDIF
         !==============================================================================================!
         ! 3.2) Compute the operator Fu
-        !==============================================================================================!
+        !==============================================================================================!        
+        ! Fu = u    ! Case without considering Fu
         ! BC: no-slip wall
         ! First row and last row initialized to zeros
-        !Fu( 1      , : ) = Fu(1,:)
-        !Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
-        Fu = u
-        !DO i = 2, IMAX
-            !DO j = 1, JMAX
-                !au = ABS( u(i,j) )
+        Fu( 1      , : ) = Fu(1,:)
+        Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
+        DO i = 2, IMAX
+            DO j = 1, JMAX
+                au = ABS( u(i,j) )
                 ! Explicit upwind
                 ! In our case, nu = 0
                 !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
                 !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
                 !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
-                !Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
-                 !       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                  !      + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
-            !ENDDO
-        !ENDDO
+                Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                       + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+            ENDDO
+        ENDDO
         !==============================================================================================!
         ! 3.3) Compute the operator Fv
         !==============================================================================================!
+        ! Fv = v    ! Case without considering Fv
         ! BC: no-slip wall
         ! First column and last column initialized to zeros
-        !Fv( : , 1      ) = Fv(:,1)
-        !Fv( : , JMAX+1 ) = Fv(:,JMAX+1)
-        Fv = v
-        !DO i = 1, IMAX
-        !    DO j = 2, JMAX
-        !        av = ABS( v(i,j) )
+        Fv( : , 1      ) = Fv(:,1)
+        Fv( : , JMAX+1 ) = Fv(:,JMAX+1)
+        DO i = 1, IMAX
+            DO j = 2, JMAX
+                av = ABS( v(i,j) )
                 ! Explicit upwind
-                !Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                !        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                !        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
-            !ENDDO
-        !ENDDO
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+            ENDDO
+        ENDDO
         !==============================================================================================!
         ! 3.4) Solve the free surface equation
         !==============================================================================================!
@@ -223,9 +223,6 @@ PROGRAM FS2D
         ENDDO
         ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
         CALL CG(IMAX,eta,rhs)
-        
-        
-        
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
