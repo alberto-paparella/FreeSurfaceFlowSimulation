@@ -29,7 +29,7 @@ SUBROUTINE CG(N,x,b)
     REAL, PARAMETER :: tol = 1e-12      ! Tolerance for convergence  
     !==================================================================================================!
     x = b                 ! Initial guess   
-    CALL matop2D_NEW(Ax,x,N)  ! Matrix-matrix multiplication (it is implemented into the main file)
+    CALL matop2D(Ax,x,N)  ! Matrix-matrix multiplication (it is implemented into the main file)
     r = b - Ax            ! Residual   
     p = r                 ! Search direction = max. descent   
     alphak = SUM(r*r) 
@@ -43,7 +43,7 @@ SUBROUTINE CG(N,x,b)
             RETURN
         ENDIF
         !==============================================================================================!
-        CALL matop2D_NEW(Ap,p,N)    
+        CALL matop2D(Ap,p,N)    
         pAp    = SUM(p*Ap)        
         lambda = alphak / pAp
         x      = x + lambda*p
