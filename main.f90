@@ -48,7 +48,7 @@ PROGRAM FS2D
     tio    = 0.0    ! Time iterator for output file
     dtio   = 5e-2   ! Time step for output file
     CFL    = 0.9    ! CFL number for time step
-    dt_fix = 1e-2   ! Fixed time step for computation
+    dt_fix = 2e-2   ! Fixed time step for computation
     nu     = 0.e-2  ! Kinematic viscosity coefficient
     !==================================================================================================!
     CALL Allocate_Var  ! Allocate all variables
@@ -241,7 +241,7 @@ PROGRAM FS2D
         v(:,JMAX+1) = Fv(:,JMAX+1)
         DO i = 1, IMAX
             DO j = 2, JMAX
-                v(i,j) = Fu(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
+                v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO
         !==============================================================================================!
@@ -271,6 +271,8 @@ PROGRAM FS2D
         time = time + dt  ! Update time
         !==========================================================================================!
         ! 3.7) Eventually plot the results
+        !CALL DataOutput(n)  ! DEBUG
+        !STOP                ! DEBUG
         IF(ABS(time-tio).LT.1e-12) THEN
             WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
             CALL DataOutput(n)
