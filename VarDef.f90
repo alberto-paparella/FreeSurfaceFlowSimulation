@@ -14,6 +14,7 @@
 ! VarDef.f90
 ! In this file we defined the variables we are going to use
 !======================================================================================================!
+!#define PARALLEL
 MODULE VarDef_mod
     IMPLICIT NONE
     PUBLIC
@@ -30,7 +31,7 @@ MODULE VarDef_mod
     REAL                :: xL, xR   ! Domain boundaries for axis x
     REAL                :: yD, yU   ! Domain boundaries for axis y
     real                :: s        ! Initial condition
-    REAL, ALLOCATABLE   :: x(:)     ! Vertex x coords (where u is defined)
+    REAL, ALLOCATABLE   :: x(:)     ! Vertex x coords (where u is defined)  
     REAL, ALLOCATABLE   :: y(:)     ! Vertex y coords (where v is defined)
     ! TODO Why not use a single matrix for barycenter coords?
     ! REAL, ALLOCATABLE :: xyb(:,:) ! Barycenter coords (where eta is defined)
@@ -54,6 +55,17 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: bv (:, :)    ! Bottom elevation for v mesh
     REAL                :: nu           ! kinematic viscosity coefficient
     REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system 
+    !==================================================================================================!
+    !variables for parallelization
+    !==================================================================================================!
+#ifdef PARALLEL
+    INTEGER             :: LCPU, RCPU, MsgLength, nMsg 
+    REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
+    INTEGER             :: send_request(2), recv_request(2) 
+    !INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)   
+#endif     
+    !------------------------------------------------------------!
+  
     !==================================================================================================!
     ! Concerning time
     !==================================================================================================!
@@ -85,8 +97,8 @@ SUBROUTINE Allocate_Var
     ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
     ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
     ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
-    ALLOCATE( eta( IMAX, JMAX )                           )
-    ! ALLOCATE (chs(IMAX,JMAX)  ! TODO Who is this? I couldn't find it anywhere else, do we need this?
+    ALLOCATE( eta( IMAX, JMAX )                           )    
+  
     u   = 0.
     v   = 0.
     Fu  = 0.

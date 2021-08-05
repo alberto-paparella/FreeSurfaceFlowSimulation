@@ -7,12 +7,18 @@ Project("{6989167D-11E4-40FE-8C1A-2192A86A7E90}") = "PCProject02", "PCProject02.
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_MPI|x64 = Debug_MPI|x64
+		Debug_MPI|x86 = Debug_MPI|x86
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug_MPI|x64.ActiveCfg = Debug_MPI|x64
+		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug_MPI|x64.Build.0 = Debug_MPI|x64
+		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug_MPI|x86.ActiveCfg = Debug_MPI|Win32
+		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug_MPI|x86.Build.0 = Debug_MPI|Win32
 		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug|x64.ActiveCfg = Debug|x64
 		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug|x64.Build.0 = Debug|x64
 		{B97CBB70-08A8-46AB-8085-2647F0D7D880}.Debug|x86.ActiveCfg = Debug|Win32

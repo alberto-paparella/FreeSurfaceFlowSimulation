@@ -13,31 +13,71 @@
 !======================================================================================================!
 ! IO.f90
 ! Usefull subroutines to print results (can be used for plotting)
-!======================================================================================================!
-    SUBROUTINE DataOutput(timestep)
+!======================================================================================================!   
+!#define PARALLEL  
+    SUBROUTINE DataOutput(timestep,istart, iend, myrank,cmyrank)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
     !==================================================================================================!
-    INTEGER, INTENT(IN) :: timestep
+    INTEGER, INTENT(IN) :: timestep, istart, iend, myrank
     !==================================================================================================!
     INTEGER             :: i, j, DataUnit
     REAL                :: ub, vb
-    CHARACTER(LEN=10)   :: citer
+    CHARACTER(LEN=10)   :: citer,cmyrank
     CHARACTER(LEN=200)  :: IOFileName
     !==================================================================================================!
-    WRITE(citer,'(I8.8)') timestep                        ! Convert iteration number to string
+    WRITE(citer,'(I8.8)') timestep 
+#ifdef PARALLEL  
+    WRITE(citer,'(I8.8)') timestep
+    WRITE(cmyrank,'(I4.4)') myrank                        ! convert iteration number to string
+    IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'-'//TRIM(cmyrank)//'.dat' ! name of output file
+    DataUnit   = 100+myrank                               ! unit for output file
+    !
+#endif
+    
+    ! Convert iteration number to string
     IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'.dat' ! Name of output file
     DataUnit   = 100                                      ! Unit for output file
     !==================================================================================================!
     OPEN(UNIT=DataUnit, FILE=TRIM(IOFilename), STATUS='UNKNOWN', ACTION='WRITE')
-    !==================================================================================================!
+    !==================================================================================================! 
 #ifdef MATLAB_OUT
     ! Header
     WRITE(DataUnit,*) IMAX
     WRITE(DataUnit,*) JMAX
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
+  ! #ifdef PARALLEL 
+        WRITE(DataUnit,*) IMAX
+        WRITE(DataUnit,*) JMAX
+        ! Coordinates
+        DO i = istart, iend
+          WRITE(DataUnit,*) x(i)
+        ENDDO  
+      !
+         DO i = istart, iend
+            DO j= istart, iend
+                WRITE(DataUnit,*) eta(i,j)
+            ENDDO
+         ENDDO
+     
+           ! Velocity (interpolation at barycenters)
+        ! Velocity on the x axys
+        DO i = istart, iend
+            DO j= istart, iend
+                ub = 0.5 * ( u(i,j) + u(i+1,j) )  
+                WRITE(DataUnit,*) ub
+            ENDDO
+        ENDDO
+        ! Velocity on the y axys
+        DO i = istart, iend
+            DO j= istart, iend
+                vb = 0.5 * ( v(i,j) + v(i,j+1) )  
+                WRITE(DataUnit,*) vb
+            ENDDO
+        ENDDO
+    !#endif       
     DO i = 1, IMAX
         WRITE(DataUnit,*) xb(i)
     ENDDO  
@@ -87,44 +127,5 @@
 !======================================================================================================!
     END SUBROUTINE DataOutput  
  
-    
-!======================================================================================================!
-!PARALLELIZATION 
-!======================================================================================================!
-    
-  #define PARALLEL
-    
-    SUBROUTINE DataOutput(timestep,TestName,myrank,istart,iend,IMAX,x,T)
-    !------------------------------------------------------------!
-    IMPLICIT NONE
-    !------------------------------------------------------------!
-    INTEGER,            INTENT(IN) :: timestep, IMAX, istart, iend, myrank
-    CHARACTER(LEN=200), INTENT(IN) :: TestName
-    REAL,               INTENT(IN) :: x(IMAX), T(istart:iend)
-    !
-    INTEGER                        :: i, DataUnit
-    CHARACTER(LEN=10)              :: citer, cmyrank
-    CHARACTER(LEN=200)             :: IOFileName
-    !------------------------------------------------------------!
-    !
-    WRITE(citer,'(i10.10)') timestep                      ! convert iteration number to string
-    WRITE(cmyrank,'(I4.4)') myrank                        ! convert iteration number to string
-    IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'-'//TRIM(cmyrank)//'.dat' ! name of output file
-    DataUnit   = 100+myrank                               ! unit for output file
-    !
-    OPEN(UNIT=DataUnit, FILE=TRIM(IOFilename), STATUS='UNKNOWN', ACTION='WRITE')
-    !
-    ! Header
-    WRITE(DataUnit,*) IMAX
-    ! Coordinates
-    DO i = istart, iend
-      WRITE(DataUnit,*) x(i)
-    ENDDO  
-    ! Temperature
-    DO i = istart, iend
-      WRITE(DataUnit,*) T(i)
-    ENDDO
-    !
-    CLOSE(DataUnit)
-    !
-END SUBROUTINE DataOutput
+
+  
