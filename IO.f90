@@ -85,5 +85,46 @@
     !==================================================================================================!
     CLOSE(DataUnit)
 !======================================================================================================!
-END SUBROUTINE DataOutput  
-  
+    END SUBROUTINE DataOutput  
+ 
+    
+!======================================================================================================!
+!PARALLELIZATION 
+!======================================================================================================!
+    
+  #define PARALLEL
+    
+    SUBROUTINE DataOutput(timestep,TestName,myrank,istart,iend,IMAX,x,T)
+    !------------------------------------------------------------!
+    IMPLICIT NONE
+    !------------------------------------------------------------!
+    INTEGER,            INTENT(IN) :: timestep, IMAX, istart, iend, myrank
+    CHARACTER(LEN=200), INTENT(IN) :: TestName
+    REAL,               INTENT(IN) :: x(IMAX), T(istart:iend)
+    !
+    INTEGER                        :: i, DataUnit
+    CHARACTER(LEN=10)              :: citer, cmyrank
+    CHARACTER(LEN=200)             :: IOFileName
+    !------------------------------------------------------------!
+    !
+    WRITE(citer,'(i10.10)') timestep                      ! convert iteration number to string
+    WRITE(cmyrank,'(I4.4)') myrank                        ! convert iteration number to string
+    IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'-'//TRIM(cmyrank)//'.dat' ! name of output file
+    DataUnit   = 100+myrank                               ! unit for output file
+    !
+    OPEN(UNIT=DataUnit, FILE=TRIM(IOFilename), STATUS='UNKNOWN', ACTION='WRITE')
+    !
+    ! Header
+    WRITE(DataUnit,*) IMAX
+    ! Coordinates
+    DO i = istart, iend
+      WRITE(DataUnit,*) x(i)
+    ENDDO  
+    ! Temperature
+    DO i = istart, iend
+      WRITE(DataUnit,*) T(i)
+    ENDDO
+    !
+    CLOSE(DataUnit)
+    !
+END SUBROUTINE DataOutput

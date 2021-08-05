@@ -51,6 +51,7 @@
 		<File RelativePath=".\IO.f90"/>
 		<File RelativePath=".\LinSystem.f90"/>
 		<File RelativePath=".\main.f90"/>
-		<File RelativePath=".\VarDef.f90"/></Filter>
+		<File RelativePath=".\VarDef.f90"/>
+		<File RelativePath=".\VarDefMPI.f90"/></Filter>
 		<File RelativePath=".\TODO.txt"/></Files>
 	<Globals/></VisualStudioProject>
