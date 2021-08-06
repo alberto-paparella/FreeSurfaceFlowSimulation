@@ -13,9 +13,8 @@
 !======================================================================================================!
 ! IO.f90
 ! Usefull subroutines to print results (can be used for plotting)
-!======================================================================================================!   
-!#define PARALLEL  
-    SUBROUTINE DataOutput(timestep,istart, iend, myrank,cmyrank)
+!======================================================================================================!    
+    SUBROUTINE DataOutput(timestep,istart, iend, myrank)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
@@ -48,7 +47,7 @@
     WRITE(DataUnit,*) JMAX
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
-  ! #ifdef PARALLEL 
+   #ifdef PARALLEL 
         WRITE(DataUnit,*) IMAX
         WRITE(DataUnit,*) JMAX
         ! Coordinates
@@ -77,7 +76,7 @@
                 WRITE(DataUnit,*) vb
             ENDDO
         ENDDO
-    !#endif       
+    #endif       
     DO i = 1, IMAX
         WRITE(DataUnit,*) xb(i)
     ENDDO  

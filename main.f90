@@ -352,7 +352,7 @@
 !PARALLELIZATION 
 !======================================================================================================!
 
-#define PARALLEL
+
 PROGRAM FS2D
     !==================================================================================================!
     USE VarDef_mod  ! In this module we defined the variables we are going to use
@@ -406,6 +406,7 @@ IMPLICIT NONE
          STOP 
     ENDIF 
     MPI%nElem  = IMAX/MPI%nCPU 
+    MPI%nElem  = JMAX/MPI%nCPU
     MPI%istart = 1 + MPI%myrank*MPI%nElem 
     MPI%iend  = MPI%istart + MPI%nElem - 1 
     ! 
@@ -481,14 +482,28 @@ IMPLICIT NONE
     ! We decided to use two separates dimensions, IMAX and JMAX,
     ! for x and y coords, to offer more flexibility
     !==================================================================================================!
-    DO i = 1, IMAX
+   
+   
+#ifdef PARALLEL
+DO i= MPI%istart, MPI%iend
+    x(i+1) = x(i) + dx
+    xb(i)  = x(i) + dx/2.
+ENDDO
+DO j = MPI%istart, MPI%iend
+    y(j+1) = y(j) + dy
+    yb(j)  = y(j) + dy/2.
+ENDDO
+#else
+     DO i = 1, IMAX
         x(i+1) = x(i) + dx
         xb(i)  = x(i) + dx/2.
-    ENDDO
+     ENDDO
+ 
     DO j = 1, JMAX
         y(j+1) = y(j) + dy
         yb(j)  = y(j) + dy/2.
     ENDDO
+#endif
     !==================================================================================================!
     ! 2) Initial condition
     !==================================================================================================!
@@ -497,22 +512,36 @@ IMPLICIT NONE
      ENDIF  
    
     !==================================================================================================!
-    !! 2.1) Free surface elevation (barycenters)
-    !!==================================================================================================!
-    !DO i = 1, IMAX
-    !    DO j = 1, JMAX
-    !        !===========================================================================================!
-    !        ! Gaussian profile
-    !        !===========================================================================================!
-    !        ! Note: we use xb and yb instead of x and y because x and y represents the vertex
-    !        ! coords for u and v, while xb and yb represents the barycenter coords for eta
-    !        !===========================================================================================!
-    !        eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
-    !    ENDDO
-    !ENDDO
+    ! 2.1) Free surface elevation (barycenters)
+    !==================================================================================================!
+    #ifdef PARALLEL
+    DO i= MPI%istart, MPI%iend
+        DO j = MPI%istart, MPI%iend
+            !===========================================================================================!
+            ! Gaussian profile
+            !===========================================================================================!
+            ! Note: we use xb and yb instead of x and y because x and y represents the vertex
+            ! coords for u and v, while xb and yb represents the barycenter coords for eta
+            !===========================================================================================!
+            eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
+        ENDDO
+    ENDDO
+#else
+     DO i = 1, IMAX
+        DO j = 1, JMAX
+            !===========================================================================================!
+            ! Gaussian profile
+            !===========================================================================================!
+            ! Note: we use xb and yb instead of x and y because x and y represents the vertex
+            ! coords for u and v, while xb and yb represents the barycenter coords for eta
+            !===========================================================================================!
+            eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
+        ENDDO
+    ENDDO
+
+#endif
      
-     
-     
+     !TODO parallelization
     !==================================================================================================!
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !==================================================================================================!
@@ -556,7 +585,10 @@ IMPLICIT NONE
     !==================================================================================================!
     ! Plot initial condition
     !==================================================================================================!
-    CALL DataOutput(0)
+    !CALL DataOutput(0)
+#ifdef PARALLEL    
+    CALL DataOutput(0,MPI%istart,MPI%iend,MPI%myrank)
+#endif    
     tio = tio + dtio
     !==================================================================================================!
     ! 3) Computation: main loop in time
@@ -606,6 +638,57 @@ ENDIF
         ! First row and last row initialized to zeros
         Fu( 1      , : ) = Fu(1,:)
         Fu( IMAX+1 , : ) = Fu(IMAX+1,:)
+        #ifdef PARALLEL
+      !
+      ! The only real MPI part is here: exchange of the boundary values between CPUs 
+      !
+      MsgLength = 1 
+      RCPU = MPI%myrank + 1 
+      IF(RCPU.GT.MPI%nCPU-1) THEN
+          RCPU = 0
+      ENDIF
+      LCPU = MPI%myrank - 1 
+      IF(LCPU.LT.0) THEN 
+          LCPU = MPI%nCPU - 1 
+      ENDIF 
+      ! send your leftmost state to your left neighbor CPU 
+      send_messageL = T(MPI%istart) 
+      CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+      ! send your rightmost state to your right neighbor CPU => post a send request  
+      send_messageR = T(MPI%iend)
+      CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+      ! obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+      CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+      ! obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+      CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)               
+      !
+        ! We do some useful work here, e.g. update all internal elements of the domain, since we do non-blocking communication ! 
+      !
+      ! The main finite difference scheme is IDENTICAL to the serial code ! 
+      ! This is the simplicify and the beauty of MPI :-) 
+      !   
+      DO i = MPI%istart+1, MPI%iend-1  
+          DO j = MPI%istart+1, MPI%iend-1  
+           Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                       + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+           ENDDO
+      ENDDO   
+      !
+      ! Wait until all communication has finished
+      ! 
+      nMsg = 2 
+      CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+      CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+      !
+      ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+      !
+      !T(MPI%istart-1) = recv_messageL 
+      !T(MPI%iend+1)   = recv_messageR
+      !
+      ! Update the MPI boundary cell, now that we have all data
+      !
+        
         DO i = 2, IMAX
             DO j = 1, JMAX
                 au = ABS( u(i,j) )
@@ -701,7 +784,7 @@ ENDIF
         !STOP                ! DEBUG
         IF(ABS(time-tio).LT.1e-12) THEN
             WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
-            CALL DataOutput(n)
+            CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
             tio = tio + dtio
         ENDIF  
     !==============================================================================================!
