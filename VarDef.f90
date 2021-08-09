@@ -97,7 +97,10 @@ SUBROUTINE Allocate_Var
     ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
     ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
     ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
+#IFNDEF PARALLEL    
     ALLOCATE( eta( IMAX, JMAX )                           )    
+#ENDIF    
+    
   
     u   = 0.
     v   = 0.

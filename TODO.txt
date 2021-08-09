@@ -17,3 +17,9 @@ In LinSystem.f90:
 
 As for the matlab file, you have to make loops that read what you write in the .dat file and save everything in arrays/matrices. 
 To plot, use the surf or mesh function
+
+controllare se :
+ nMsg = 2 
+      CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+      CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+va fatto ogni volta che si fa un ciclo
