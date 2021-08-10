@@ -571,13 +571,13 @@ DO j = MPI%jstart, MPI%jend
         Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
         Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
     ENDDO
-    DO i = MPI%istart, MPI%iend
+    DO i = MPI%istart+1, MPI%iend-1
         DO j = MPI%jstart, MPI%jend
             Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
     DO i = MPI%istart, MPI%iend
-        DO j = MPI%jstart, MPI%jend
+        DO j = MPI%jstart+1, MPI%jend-1
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
@@ -699,15 +699,15 @@ ENDIF
       ! The main finite difference scheme is IDENTICAL to the serial code ! 
       ! This is the simplicify and the beauty of MPI :-) 
       !   
-      DO i = MPI%istart+1, MPI%iend-1  
-          DO j = MPI%jstart+1, MPI%jend-1  
+      DO i = MPI%istart, MPI%iend
+          DO j = MPI%jstart+1, MPI%jend  
            Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
            ENDDO
       ENDDO  
-      DO i = MPI%istart+1, MPI%iend-1  
-          DO j = MPI%jstart+1, MPI%jend-1
+      DO i = MPI%istart+1, MPI%iend  
+          DO j = MPI%jstart, MPI%jend
             av = ABS( v(i,j) )
             ! Explicit upwind
             Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
@@ -754,8 +754,8 @@ ENDIF
         !==============================================================================================!
         ! CONJUGATE GRADIENT METHOD
         !==============================================================================================!  
-        DO i = MPI%istart+1, MPI%iend-1  
-          DO j = MPI%jstart+1, MPI%jend-1
+        DO i = MPI%istart, MPI%iend 
+          DO j = MPI%jstart, MPI%jend
                 rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
@@ -833,13 +833,13 @@ ENDIF
         Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
         Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
     ENDDO
-    DO i = MPI%istart, MPI%iend
+    DO i = MPI%istart +1, MPI%iend
         DO j = MPI%jstart, MPI%jend
             Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
     DO i = MPI%istart, MPI%iend
-        DO j = MPI%jstart, MPI%jend
+        DO j = MPI%jstart+1, MPI%jend
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
