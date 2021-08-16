@@ -352,7 +352,7 @@
 !PARALLELIZATION 
 !======================================================================================================!
 
-
+#define PARALLEL 
 PROGRAM FS2D
     !==================================================================================================!
     USE VarDef_mod  ! In this module we defined the variables we are going to use
@@ -675,7 +675,26 @@ ENDIF
         Fv( : , 1      ) = v(:,1)
         Fv( : , JMAX+1 ) = v(:,JMAX+1)
 #ifdef PARALLEL
-    !
+ 
+ 
+      DO i = MPI%istart, MPI%iend
+          DO j = MPI%jstart+1, MPI%jend  
+           Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                       + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+           ENDDO
+      ENDDO  
+      DO i = MPI%istart+1, MPI%iend  
+          DO j = MPI%jstart, MPI%jend
+            av = ABS( v(i,j) )
+            ! Explicit upwind
+            Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                    + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                    + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+        ENDDO
+      ENDDO
+      
+         !
     ! The only real MPI part is here: exchange of the boundary values between CPUs 
     !
       MsgLength = 1 
@@ -704,23 +723,6 @@ ENDIF
       ! The main finite difference scheme is IDENTICAL to the serial code ! 
       ! This is the simplicify and the beauty of MPI :-) 
       ! 
- 
-      DO i = MPI%istart, MPI%iend
-          DO j = MPI%jstart+1, MPI%jend  
-           Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
-                       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                       + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
-           ENDDO
-      ENDDO  
-      DO i = MPI%istart+1, MPI%iend  
-          DO j = MPI%jstart, MPI%jend
-            av = ABS( v(i,j) )
-            ! Explicit upwind
-            Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                    + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                    + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
-        ENDDO
-      ENDDO
       !==============================================================================================!
         ! 3.4) Solve the free surface equation
         !==============================================================================================!
@@ -770,23 +772,23 @@ ENDIF
         ! 3.6) Update total water depth
         !==============================================================================================!
     
-    DO j = MPI%jstart, MPI%jend
+    DO j = MPI%jstart, MPI%jend, (MPI%jend - MPI%jstart)
         ! Initialize first and last columns for Hu
         Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
         Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
     ENDDO
-    DO i= MPI%istart, MPI%iend
+    DO i= MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
         ! Initialize first and last rows for Hv
         Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
         Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
     ENDDO
-    DO i = MPI%istart +1, MPI%iend
-        DO j = MPI%jstart, MPI%jend
+    DO i = MPI%istart +1, MPI%iend , (MPI%iend - MPI%istart)
+        DO j = MPI%jstart, MPI%jend , (MPI%jend - MPI%jstart)
             Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
-    DO i = MPI%istart, MPI%iend
-        DO j = MPI%jstart+1, MPI%jend
+    DO i = MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
+        DO j = MPI%jstart+1, MPI%jend , (MPI%jend - MPI%jstart)
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
@@ -886,16 +888,17 @@ ENDIF
     IF(ABS(time-tio).LT.1e-12) THEN
       IF(MPI%myrank.EQ.0) THEN
           WRITE(*,'(a,f15.7)') '   => plotting data output at time ', time
+           CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
         ENDIF 
     
-#ifdef PARALLEL
-    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
-    IF(MPI%myrank.EQ.0) THEN
-        CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
-    ENDIF  
-#else
- CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
-#endif
+!#ifdef PARALLEL
+!    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+!    IF(MPI%myrank.EQ.0) THEN
+!        CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
+!    ENDIF  
+!#else
+! CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
+!#endif
  tio = tio + dtio
   ENDIF 
     !==============================================================================================!

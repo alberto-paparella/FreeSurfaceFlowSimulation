@@ -47,36 +47,33 @@
     WRITE(DataUnit,*) JMAX
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
-   #ifdef PARALLEL 
-        WRITE(DataUnit,*) IMAX
-        WRITE(DataUnit,*) JMAX
         ! Coordinates
-        DO i = istart, iend
-          WRITE(DataUnit,*) x(i)
-        ENDDO  
-      !
-         DO i = istart, iend
-            DO j= istart, iend
-                WRITE(DataUnit,*) eta(i,j)
-            ENDDO
-         ENDDO
-     
-           ! Velocity (interpolation at barycenters)
-        ! Velocity on the x axys
-        DO i = istart, iend
-            DO j= istart, iend
-                ub = 0.5 * ( u(i,j) + u(i+1,j) )  
-                WRITE(DataUnit,*) ub
-            ENDDO
-        ENDDO
-        ! Velocity on the y axys
-        DO i = istart, iend
-            DO j= istart, iend
-                vb = 0.5 * ( v(i,j) + v(i,j+1) )  
-                WRITE(DataUnit,*) vb
-            ENDDO
-        ENDDO
-    #endif       
+    !    DO i = istart, iend
+    !      WRITE(DataUnit,*) x(i)
+    !    ENDDO  
+    !  !
+    !     DO i = istart, iend
+    !        DO j= istart, iend
+    !            WRITE(DataUnit,*) eta(i,j)
+    !        ENDDO
+    !     ENDDO
+    ! 
+    !       ! Velocity (interpolation at barycenters)
+    !    ! Velocity on the x axys
+    !    DO i = istart, iend
+    !        DO j= istart, iend
+    !            ub = 0.5 * ( u(i,j) + u(i+1,j) )  
+    !            WRITE(DataUnit,*) ub
+    !        ENDDO
+    !    ENDDO
+    !    ! Velocity on the y axys
+    !    DO i = istart, iend
+    !        DO j= istart, iend
+    !            vb = 0.5 * ( v(i,j) + v(i,j+1) )  
+    !            WRITE(DataUnit,*) vb
+    !        ENDDO
+    !    ENDDO
+    !#else
     DO i = 1, IMAX
         WRITE(DataUnit,*) xb(i)
     ENDDO  
@@ -105,6 +102,7 @@
             WRITE(DataUnit,*) vb
         ENDDO
     ENDDO
+    !#endif    
 #else
     ! Current time 
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   
