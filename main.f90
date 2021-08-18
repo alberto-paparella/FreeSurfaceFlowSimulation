@@ -390,6 +390,12 @@ IMPLICIT NONE
     !realtest
     !we differentiate between single-precision and doubl-precision values
     SELECT CASE(KIND(realtest))
+    CASE(2)
+      IF(MPI%myrank.EQ.0) THEN
+          PRINT *, ' Single precision used for real. '
+          PRINT *, ' Setting MPI%AUTO_REAL to MPI_REAL. '
+      ENDIF
+      MPI%AUTO_REAL = MPI_REAL
     CASE(4)
       IF(MPI%myrank.EQ.0) THEN
           PRINT *, ' Single precision used for real. '
