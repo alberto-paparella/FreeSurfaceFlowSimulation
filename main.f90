@@ -366,6 +366,9 @@ IMPLICIT NONE
     REAL               :: umax, au, av, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
 #ifdef PARALLEL   
+    INTEGER             :: LCPU, RCPU, MsgLength, nMsg 
+    REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
+    INTEGER             :: send_request(2), recv_request(2) 
     INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)
 #endif   
     !==================================================================================================!
@@ -381,6 +384,7 @@ IMPLICIT NONE
     WCT2 = 0.
 #ifdef PARALLEL    
     CALL MPI_INIT(MPI%iErr)
+    print *, 'Sono arrivato qui'
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
     CALL MPI_COMM_SIZE(MPI_COMM_WORLD, MPI%nCPU,   MPI%iErr)
     !realtest

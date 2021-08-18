@@ -58,12 +58,7 @@ MODULE VarDef_mod
     !==================================================================================================!
     !variables for parallelization
     !==================================================================================================!
-#ifdef PARALLEL
-    INTEGER             :: LCPU, RCPU, MsgLength, nMsg 
-    REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
-    INTEGER             :: send_request(2), recv_request(2) 
-    !INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)   
-#endif     
+    
     !------------------------------------------------------------!
   
     !==================================================================================================!
