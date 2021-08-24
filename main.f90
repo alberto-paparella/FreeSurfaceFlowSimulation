@@ -359,8 +359,7 @@ PROGRAM FS2D
     IMPLICIT NONE
 #ifdef PARALLEL
 	INCLUDE 'mpif.h'
-#endif
-    
+#endif    
     !==================================================================================================!
     INTEGER            :: i, j, n    
     REAL               :: umax, au, av, s0, ct, cs , a , b
@@ -370,32 +369,27 @@ PROGRAM FS2D
     REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
     INTEGER             :: send_request(2), recv_request(2) 
     INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)
-#endif   
+#endif    
     !==================================================================================================!
     TYPE tMPI
        INTEGER :: myrank, nCPU, iErr 
        INTEGER :: AUTO_REAL
-       INTEGER :: nElem,istart,iend, jstart, jend 
+       INTEGER :: nElem, istart, iend, jstart, jend 
     END TYPE tMPI 
     TYPE(tMPI) :: MPI
     REAL       :: realtest
     REAL       :: WCT1, WCT2           ! Wall clock times 
     WCT1 = 0. 
     WCT2 = 0.
-#ifdef PARALLEL    
+#ifdef PARALLEL
     CALL MPI_INIT(MPI%iErr)
-    print *, 'Sono arrivato qui'
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
     CALL MPI_COMM_SIZE(MPI_COMM_WORLD, MPI%nCPU,   MPI%iErr)
-    !realtest
-    !we differentiate between single-precision and doubl-precision values
+    !==================================================================================================!
+    ! realtest
+    ! We differentiate between single-precision and double-precision values
+    !==================================================================================================!
     SELECT CASE(KIND(realtest))
-    CASE(2)
-      IF(MPI%myrank.EQ.0) THEN
-          PRINT *, ' Single precision used for real. '
-          PRINT *, ' Setting MPI%AUTO_REAL to MPI_REAL. '
-      ENDIF
-      MPI%AUTO_REAL = MPI_REAL
     CASE(4)
       IF(MPI%myrank.EQ.0) THEN
           PRINT *, ' Single precision used for real. '
@@ -414,17 +408,24 @@ PROGRAM FS2D
              PRINT *, ' Error. The number of mesh points must be a multiple of the number of CPUs. '
              PRINT *, ' IMAX = ', IMAX, ' nCPU = ', MPI%nCPU
          ENDIF  
-         CALL MPI_FINALIZE(MPI%iErr) 
+         CALL MPI_FINALIZE(MPI%iErr)
+         
+         PRINT *, 'Stopping here.'
+         PAUSE
+         
          STOP 
     ENDIF
     
-    MPI%nElem  = (IMAX*JMAX)/MPI%nCPU 
-    !MPI%nElem  = JMAX/MPI%nCPU
+    !PRINT *, 'YUPPIE!'
+    !PAUSE
+    
+    !==================================================================================================!
+    MPI%nElem  = (IMAX*JMAX)/MPI%nCPU
     MPI%istart = 1 + MPI%myrank*MPI%nElem 
     MPI%iend  = MPI%istart + MPI%nElem - 1 
-    MPI%Jstart = 1 + MPI%myrank*MPI%nElem 
-    MPI%Jend  = MPI%Jstart + MPI%nElem - 1 
-    ! 
+    MPI%jstart = 1 + MPI%myrank*MPI%nElem 
+    MPI%jend  = MPI%jstart + MPI%nElem - 1
+    !==================================================================================================!    
 #else
     MPI%myrank = 0              ! If the code is not compiled in parallel, then there is only one CPU ...
     MPI%nCPU   = 1              ! ...
@@ -433,19 +434,18 @@ PROGRAM FS2D
     MPI%iend   = IMAX  
     MPI%jstart = 1
     MPI%jend   = JMAX 
-#endif 
-    !
+#endif
+    !==================================================================================================!    
     IF(MPI%myrank.EQ.0) THEN
     WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' |  Equazione dei flussi a superficie libera su griglie strutturate.  | '
-    WRITE(*,'(a)') ' | =========================================== ======================= | '
+    WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' | ' 
     WRITE(*,'(a)') ' | Soluzione con il metodo del gradiente coniugato. '
     WRITE(*,'(a,i10)') '         Total number of CPUs used : ', MPI%nCPU       
-    WRITE(*,'(a)') ' ====================================================== '
+    WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' '
-    ENDIF 
-   
+    ENDIF   
     !==================================================================================================!
     ! SETTINGS OF THE COMPUTATION
     !==================================================================================================!
@@ -479,9 +479,15 @@ PROGRAM FS2D
     ALLOCATE( cmat  ( IMAX, JMAX ) )    ! Matrix c for i system
     ALLOCATE( cmatj ( IMAX, JMAX ) )    ! Matrix c for j system
     ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs 
-#ifdef PARALLEL    
+#ifdef PARALLEL
     ALLOCATE( eta(MPI%istart-1:MPI%iend+1, MPI%jstart-1:MPI%jend+1) )
-#endif    
+#else
+    ALLOCATE( eta( IMAX, JMAX )                           )
+    eta = 0.
+#endif
+
+    !PRINT *, 'YUPPIE!'
+    !PAUSE
    
     !==================================================================================================!
     ! 1) Computational domain 
@@ -500,24 +506,21 @@ PROGRAM FS2D
     !==================================================================================================!
     ! We decided to use two separates dimensions, IMAX and JMAX,
     ! for x and y coords, to offer more flexibility
-    !==================================================================================================!
-   
-     DO i = 1, IMAX
+    !==================================================================================================!   
+    DO i = 1, IMAX
         x(i+1) = x(i) + dx
         xb(i)  = x(i) + dx/2.
-     ENDDO
- 
+    ENDDO 
     DO j = 1, JMAX
         y(j+1) = y(j) + dy
         yb(j)  = y(j) + dy/2.
     ENDDO
-
     !==================================================================================================!
     ! 2) Initial condition
     !==================================================================================================!
      IF(MPI%myrank.EQ.0) THEN
       WRITE(*,'(a)') '  Assigning initial condition... '
-     ENDIF  
+     ENDIF
    
     !==================================================================================================!
     ! 2.1) Free surface elevation (barycenters)
@@ -546,16 +549,13 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
     ENDDO
-
 #endif
-     
     !==================================================================================================!
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !==================================================================================================!
     ! Note: u dimensions (IMAX + 1) * JMAX, while v dimensions are IMAX * (JMAX + 1)
-    !==================================================================================================!
-    
-DO i = 1, IMAX + 1
+    !==================================================================================================!    
+    DO i = 1, IMAX + 1
         DO j = 1, JMAX
             u(i, j)  = 0.0  ! Fluid at rest
             bu(i, j) = 0.0  ! Zero bottom elevation
@@ -567,12 +567,7 @@ DO i = 1, IMAX + 1
             bv(i, j) = 0.0  ! Zero bottom elevation
         ENDDO
     ENDDO
-    !==================================================================================================!
-    ! Total water depth
-    !==================================================================================================!
 #ifdef PARALLEL
-
-  
     !==================================================================================================!
     ! Total water depth
     !==================================================================================================!
@@ -626,13 +621,18 @@ DO i = 1, IMAX + 1
 #else
     CALL DataOutput(0)
 #endif    
-    tio = tio + dtio
+    tio = tio + dtio    
     !==================================================================================================!
     ! 3) Computation: main loop in time
     !==================================================================================================!
 IF(MPI%myrank.EQ.0) THEN
     WRITE(*,'(a)') ' | '
     WRITE(*,'(a)') ' | START of the COMPUTATION '
+    
+    !==================================================================================================!
+    ! WITH DEBUGGING I ARRIVED HERE
+    !==================================================================================================!
+    
 ENDIF  
 #ifdef PARALLEL
     WCT1 = MPI_WTime() 

@@ -23,21 +23,19 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     !==================================================================================================!
     INTEGER             :: i, j, DataUnit
     REAL                :: ub, vb
-    CHARACTER(LEN=10)   :: citer,cmyrank
+    CHARACTER(LEN=10)   :: citer, cmyrank
     CHARACTER(LEN=200)  :: IOFileName
     !==================================================================================================!
     WRITE(citer,'(I8.8)') timestep 
-#ifdef PARALLEL  
-    WRITE(citer,'(I8.8)') timestep
+#ifdef PARALLEL
     WRITE(cmyrank,'(I4.4)') myrank                        ! convert iteration number to string
     IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'-'//TRIM(cmyrank)//'.dat' ! name of output file
     DataUnit   = 100+myrank                               ! unit for output file
-    !
-#endif
-    
+#else    
     ! Convert iteration number to string
     IOFileName = TRIM(TestName)//'-'//TRIM(citer)//'.dat' ! Name of output file
     DataUnit   = 100                                      ! Unit for output file
+#endif
     !==================================================================================================!
     OPEN(UNIT=DataUnit, FILE=TRIM(IOFilename), STATUS='UNKNOWN', ACTION='WRITE')
     !==================================================================================================! 
@@ -47,33 +45,37 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     WRITE(DataUnit,*) JMAX
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
-        ! Coordinates
-        DO i = istart, iend
-          WRITE(DataUnit,*) x(i)
-        ENDDO  
-      !
-         DO i = istart, iend
-            DO j= istart, iend
-                WRITE(DataUnit,*) eta(i,j)
-            ENDDO
-         ENDDO
-     
-           ! Velocity (interpolation at barycenters)
-        ! Velocity on the x axys
-        DO i = istart, iend
-            DO j= istart, iend
-                ub = 0.5 * ( u(i,j) + u(i+1,j) )  
-                WRITE(DataUnit,*) ub
-            ENDDO
+        
+#ifdef PARALLEL
+    ! Coordinates
+    DO i = istart, iend
+        WRITE(DataUnit,*) xb(i)
+    ENDDO
+    DO j = jstart, jend
+        WRITE(DataUnit,*) yb(j)
+    ENDDO 
+    ! Pressure
+    DO i = istart, iend
+        DO j= istart, iend
+            WRITE(DataUnit,*) eta(i,j)
         ENDDO
-        ! Velocity on the y axys
-        DO i = istart, iend
-            DO j= istart, iend
-                vb = 0.5 * ( v(i,j) + v(i,j+1) )  
-                WRITE(DataUnit,*) vb
-            ENDDO
+    ENDDO     
+    ! Velocity (interpolation at barycenters)
+    ! Velocity on the x axys
+    DO i = istart, iend
+        DO j= istart, iend
+            ub = 0.5 * ( u(i,j) + u(i+1,j) )  
+            WRITE(DataUnit,*) ub
         ENDDO
-    #else
+    ENDDO
+    ! Velocity on the y axys
+    DO i = istart, iend
+        DO j= istart, iend
+            vb = 0.5 * ( v(i,j) + v(i,j+1) )  
+            WRITE(DataUnit,*) vb
+        ENDDO
+    ENDDO
+#else
     DO i = 1, IMAX
         WRITE(DataUnit,*) xb(i)
     ENDDO  
@@ -102,7 +104,7 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
             WRITE(DataUnit,*) vb
         ENDDO
     ENDDO
-    !#endif    
+#endif    
 #else
     ! Current time 
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   
@@ -122,7 +124,4 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     !==================================================================================================!
     CLOSE(DataUnit)
 !======================================================================================================!
-    END SUBROUTINE DataOutput  
- 
-
-  
+END SUBROUTINE DataOutput  
