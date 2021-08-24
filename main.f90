@@ -352,11 +352,11 @@
 !PARALLELIZATION 
 !======================================================================================================!
 
-#define PARALLEL 
+!#define PARALLEL 
 PROGRAM FS2D
     !==================================================================================================!
     USE VarDef_mod  ! In this module we defined the variables we are going to use
-IMPLICIT NONE
+    IMPLICIT NONE
 #ifdef PARALLEL
 	INCLUDE 'mpif.h'
 #endif
@@ -622,9 +622,9 @@ DO i = 1, IMAX + 1
     ! Plot initial condition
     !==================================================================================================!
 #ifdef PARALLEL    
-    CALL DataOutput(0,MPI%istart,MPI%iend,MPI%myrank)
+    CALL DataOutput(0, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
 #else
-CALL DataOutput(0)
+    CALL DataOutput(0)
 #endif    
     tio = tio + dtio
     !==================================================================================================!
@@ -898,7 +898,7 @@ ENDIF
     IF(ABS(time-tio).LT.1e-12) THEN
       IF(MPI%myrank.EQ.0) THEN
           WRITE(*,'(a,f15.7)') '   => plotting data output at time ', time
-           CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
+           CALL DataOutput(n, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
         ENDIF 
     
 !#ifdef PARALLEL

@@ -14,12 +14,12 @@
 ! IO.f90
 ! Usefull subroutines to print results (can be used for plotting)
 !======================================================================================================!    
-    SUBROUTINE DataOutput(timestep,istart, iend,jstart, jend, myrank)
+SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
     !==================================================================================================!
-    INTEGER, INTENT(IN) :: timestep, istart, iend, myrank
+    INTEGER, INTENT(IN) :: timestep, istart, iend, jstart, jend, myrank
     !==================================================================================================!
     INTEGER             :: i, j, DataUnit
     REAL                :: ub, vb
