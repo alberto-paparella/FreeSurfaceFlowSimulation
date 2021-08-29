@@ -56,21 +56,21 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     ENDDO 
     ! Pressure
     DO i = istart, iend
-        DO j= istart, iend
+        DO j= jstart, jend
             WRITE(DataUnit,*) eta(i,j)
         ENDDO
     ENDDO     
     ! Velocity (interpolation at barycenters)
     ! Velocity on the x axys
     DO i = istart, iend
-        DO j= istart, iend
+        DO j= jstart, jend
             ub = 0.5 * ( u(i,j) + u(i+1,j) )  
             WRITE(DataUnit,*) ub
         ENDDO
     ENDDO
     ! Velocity on the y axys
     DO i = istart, iend
-        DO j= istart, iend
+        DO j= jstart, jend
             vb = 0.5 * ( v(i,j) + v(i,j+1) )  
             WRITE(DataUnit,*) vb
         ENDDO

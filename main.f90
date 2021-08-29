@@ -625,15 +625,10 @@ PROGRAM FS2D
     !==================================================================================================!
     ! 3) Computation: main loop in time
     !==================================================================================================!
-IF(MPI%myrank.EQ.0) THEN
-    WRITE(*,'(a)') ' | '
-    WRITE(*,'(a)') ' | START of the COMPUTATION '
-    
-    !==================================================================================================!
-    ! WITH DEBUGGING I ARRIVED HERE
-    !==================================================================================================!
-    
-ENDIF  
+    IF(MPI%myrank.EQ.0) THEN
+        WRITE(*,'(a)') ' | '
+        WRITE(*,'(a)') ' | START of the COMPUTATION ' 
+    ENDIF  
 #ifdef PARALLEL
     WCT1 = MPI_WTime() 
 #else
@@ -641,18 +636,18 @@ ENDIF
 #endif    
     !
     DO n = 1, NMAX
-      !
-      IF(MPI%myrank.EQ.0) THEN
-        IF(MOD(n,100).EQ.0) THEN
-          WRITE(*,'(a,i10)') '  Current timestep = ', n 
+        !
+        IF(MPI%myrank.EQ.0) THEN
+            IF(MOD(n,100).EQ.0) THEN
+                WRITE(*,'(a,i10)') '  Current timestep = ', n 
+            ENDIF
         ENDIF
-      ENDIF
     
-      !
+    !
     !==================================================================================================!
-        !==============================================================================================!
-        ! 3.1) Compute the time step
-        !==============================================================================================!
+    !==============================================================================================!
+    ! 3.1) Compute the time step
+    !==============================================================================================!
         IF( time.GE.tend ) THEN
             EXIT    
         ENDIF
@@ -670,31 +665,22 @@ ENDIF
         !==============================================================================================!
         ! 3.2) Compute the operator Fu
         !==============================================================================================!        
-        ! Fu = u    ! Case without considering Fu
-        ! BC: no-slip wall
-        ! First row and last row initialized to zeros
         Fu( 1      , : ) = u(1,:)
         Fu( IMAX+1 , : ) = u(IMAX+1,:)
-            !==============================================================================================!
-        ! 3.3) Compute the operator Fv
         !==============================================================================================!
-        ! Fv = v    ! Case without considering Fv
-        ! BC: no-slip wall
-        ! First column and last column initialized to zeros
-      
+        ! 3.3) Compute the operator Fv
+        !==============================================================================================! 
         Fv( : , 1      ) = v(:,1)
         Fv( : , JMAX+1 ) = v(:,JMAX+1)
 #ifdef PARALLEL
- 
- 
-      DO i = MPI%istart, MPI%iend
+        DO i = MPI%istart, MPI%iend
           DO j = MPI%jstart+1, MPI%jend  
            Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
            ENDDO
-      ENDDO  
-      DO i = MPI%istart+1, MPI%iend  
+        ENDDO  
+        DO i = MPI%istart+1, MPI%iend  
           DO j = MPI%jstart, MPI%jend
             av = ABS( v(i,j) )
             ! Explicit upwind
@@ -704,7 +690,7 @@ ENDIF
         ENDDO
       ENDDO
       
-         !
+    !
     ! The only real MPI part is here: exchange of the boundary values between CPUs 
     !
       MsgLength = 1 
@@ -746,14 +732,14 @@ ENDIF
         ENDDO
         CALL CG(IMAX,eta,rhs)
         
-    !  
-    ! Wait until all communication has finished
-    ! 
-      nMsg = 2 
-      CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
-      CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
-      eta(MPI%istart-1, MPI%jstart-1)   = recv_messageL 
-      eta(MPI%iend+1, MPI%jend+1)       = recv_messageR
+        !  
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+        eta(MPI%istart-1, MPI%jstart-1)   = recv_messageL 
+        eta(MPI%iend+1, MPI%jend+1)       = recv_messageR
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
@@ -764,7 +750,6 @@ ENDIF
         u(IMAX+1,:) = Fu(IMAX+1,:)
         v(:,1)      = Fv(:,1)
         v(:,JMAX+1) = Fv(:,JMAX+1)
-        
         
         DO i = MPI%istart +1, MPI%iend
             DO j =MPI%jstart, MPI%jend
@@ -778,31 +763,31 @@ ENDIF
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO
+        
         !==============================================================================================!
         ! 3.6) Update total water depth
         !==============================================================================================!
     
-    DO j = MPI%jstart, MPI%jend, (MPI%jend - MPI%jstart)
+        DO j = MPI%jstart, MPI%jend, (MPI%jend - MPI%jstart)
         ! Initialize first and last columns for Hu
-        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-    ENDDO
-    DO i= MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
-        ! Initialize first and last rows for Hv
-        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
-    ENDDO
-    DO i = MPI%istart +1, MPI%iend , (MPI%iend - MPI%istart)
-        DO j = MPI%jstart, MPI%jend , (MPI%jend - MPI%jstart)
-            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+            Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
         ENDDO
-    ENDDO
-    DO i = MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
-        DO j = MPI%jstart+1, MPI%jend , (MPI%jend - MPI%jstart)
-            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+        DO i= MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
+            ! Initialize first and last rows for Hv
+            Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+            Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
         ENDDO
-    ENDDO
- 
+        DO i = MPI%istart +1, MPI%iend , (MPI%iend - MPI%istart)
+            DO j = MPI%jstart, MPI%jend , (MPI%jend - MPI%jstart)
+                Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        DO i = MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
+            DO j = MPI%jstart+1, MPI%jend , (MPI%jend - MPI%jstart)
+                Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
 #else      
     
     DO i = 1, IMAX
@@ -827,7 +812,6 @@ ENDIF
                     + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
         ENDDO
     ENDDO
-
         !==============================================================================================!
         ! 3.4) Solve the free surface equation
         !==============================================================================================!
@@ -843,6 +827,7 @@ ENDIF
               ! 
 
         CALL CG(IMAX,eta,rhs)
+        
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
@@ -866,7 +851,6 @@ ENDIF
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO      
-
     
     DO j = 1, JMAX
         ! Initialize first and last columns for Hu
@@ -888,6 +872,7 @@ ENDIF
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
+    
 #endif  
     !==========================================================================================!
     time = time + dt  ! Update time
@@ -901,14 +886,15 @@ ENDIF
            CALL DataOutput(n, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
         ENDIF 
     
-!#ifdef PARALLEL
-!    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
-!    IF(MPI%myrank.EQ.0) THEN
-!        CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
-!    ENDIF  
-!#else
-! CALL DataOutput(n,MPI%istart,MPI%iend,MPI%myrank)
-!#endif
+#ifdef PARALLEL
+    CALL MPI_ALLGATHER(rhs(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+    IF(MPI%myrank.EQ.0) THEN
+    CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
+    ENDIF
+     
+#else
+ CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
+#endif
  tio = tio + dtio
   ENDIF 
     !==============================================================================================!
@@ -940,7 +926,11 @@ ENDDO ! n cycle
     !==============================================================================================!    
     PAUSE
 !======================================================================================================!
-END PROGRAM FS2D
+    END PROGRAM FS2D
+    
+    
+    
+    
 !======================================================================================================!
 SUBROUTINE matop2D(Ap,p,N)
     !==================================================================================================!
