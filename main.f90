@@ -540,7 +540,7 @@ PROGRAM FS2D
         ENDDO
     ENDDO
     PRINT *, eta
-    
+    CALL MPI_GATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -553,7 +553,7 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
      ENDDO
-    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+   
 #endif
     !==================================================================================================!
     ! 2.1) Velocity, bottom and total water depth (interfaces)
