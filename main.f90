@@ -552,7 +552,8 @@ PROGRAM FS2D
             !===========================================================================================!
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
-    ENDDO
+     ENDDO
+    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
 #endif
     !==================================================================================================!
     ! 2.1) Velocity, bottom and total water depth (interfaces)
@@ -894,7 +895,7 @@ PROGRAM FS2D
         ENDIF 
     
 #ifdef PARALLEL
-    CALL MPI_ALLGATHER(rhs(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
     IF(MPI%myrank.EQ.0) THEN
     CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
     ENDIF
