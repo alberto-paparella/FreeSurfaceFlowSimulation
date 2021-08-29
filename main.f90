@@ -374,7 +374,7 @@ PROGRAM FS2D
     TYPE tMPI
        INTEGER :: myrank, nCPU, iErr 
        INTEGER :: AUTO_REAL
-       INTEGER :: nElem, istart, iend, jstart, jend 
+       INTEGER :: nElem, istart, iend, jstart, jend, kstart, kend
     END TYPE tMPI 
     TYPE(tMPI) :: MPI
     REAL       :: realtest
@@ -526,6 +526,8 @@ PROGRAM FS2D
     ! 2.1) Free surface elevation (barycenters)
     !==================================================================================================!
 #ifdef PARALLEL
+ PRINT *, eta
+ print *, '---'
     DO i= MPI%istart, MPI%iend
         DO j = MPI%jstart, MPI%jend
             !===========================================================================================!
@@ -537,6 +539,8 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
     ENDDO
+    PRINT *, eta
+    
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -688,8 +692,9 @@ PROGRAM FS2D
                     + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
                     + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
         ENDDO
-      ENDDO
+        ENDDO
       
+       
     !
     ! The only real MPI part is here: exchange of the boundary values between CPUs 
     !
@@ -730,7 +735,9 @@ PROGRAM FS2D
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
         ENDDO
-        CALL CG(IMAX,eta,rhs)
+        
+        CALL CG(IMAX,eta,rhs,MPI%istart, MPI%iend, MPI%jstart, MPI%jend)   !,MPI%istart, MPI%iend, MPI%jstart, MPI%jend
+        PRINT *, 'Ciao'
         
         !  
         ! Wait until all communication has finished
@@ -932,16 +939,17 @@ ENDDO ! n cycle
     
     
 !======================================================================================================!
-SUBROUTINE matop2D(Ap,p,N)
+SUBROUTINE matop2D(Ap,p,N,istart, iend, jstart, jend)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
     !==================================================================================================!
-    INTEGER  :: N 
-    REAL     :: Ap(N,N), p(N,N)
+    INTEGER             :: N 
+    REAL                :: Ap(N,N), p(N,N)
     !==================================================================================================!
-    INTEGER  :: i, j
-    REAL     :: cx, cy
+    INTEGER             :: i, j
+    INTEGER, INTENT(IN) :: istart, iend, jstart, jend
+    REAL                :: cx, cy
     !==================================================================================================!
     cx = g*dt**2/dx2    ! Temporary coefficient
     cy = g*dt**2/dy2
@@ -952,6 +960,33 @@ SUBROUTINE matop2D(Ap,p,N)
     !==================================================================================================!	
 	! 2) Fluxes in x-direction
     !==================================================================================================!	
+#ifdef PARALLEL
+    	DO j = jstart, jend
+		DO i = istart, iend
+			IF(i.EQ.1) THEN
+				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - 0.0 )
+			ELSEIF(i.EQ.iend) THEN  
+				Ap(i,j) = Ap(i,j) - cx * ( 0.0 - Hu(i,j)*(p(i,j)-p(i-1,j)) )
+			ELSE  
+				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - Hu(i,j)*(p(i,j)-p(i-1,j)) )
+			ENDIF 
+		ENDDO
+    ENDDO
+    !==================================================================================================!	
+    ! 3) Fluxes in y-direction
+    !==================================================================================================!	
+	DO j = jstart, jend
+		DO i = istart, iend
+			IF(j.EQ.1) THEN
+				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - 0.0 )
+			ELSEIF(j.EQ.jend) THEN  
+				Ap(i,j) = Ap(i,j) - cy * ( 0.0 - Hv(i,j)*(p(i,j)-p(i,j-1)) )
+			ELSE  
+				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - Hv(i,j)*(p(i,j)-p(i,j-1)) )
+			ENDIF 
+		ENDDO
+    ENDDO   
+#else    
 	DO j = 1, N
 		DO i = 1, N
 			IF(i.EQ.1) THEN
@@ -977,6 +1012,7 @@ SUBROUTINE matop2D(Ap,p,N)
 			ENDIF 
 		ENDDO
     ENDDO    
+#endif    
 !======================================================================================================!
     END SUBROUTINE matop2D
   

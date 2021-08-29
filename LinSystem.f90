@@ -14,22 +14,29 @@
 ! LinSystem.f90
 ! In this file we implement the routine for the coniugate gradient method
 !======================================================================================================!
-SUBROUTINE CG(N,x,b)
+SUBROUTINE CG(N,x,b,istart, iend, jstart, jend)
     IMPLICIT NONE
     !==================================================================================================!
-    INTEGER         :: N        ! Size of the linear system
-    REAL            :: x(N,N)   ! Solution (in matricial form)
-    REAL            :: b(N,N)   ! Right hand side (in matricial form)
+    INTEGER             :: N        ! Size of the linear system
+    REAL                :: x(N,N)   ! Solution (in matricial form)
+    REAL                :: b(N,N)   ! Right hand side (in matricial form)
     !==================================================================================================!
-    INTEGER         :: k, KMAX, iErr
-    REAL            :: Ax(N,N), Ap(N,N)
-    REAL            :: r(N,N), p(N,N)
-    REAL            :: pAp, lambda
-    REAL            :: alphak, alpha
-    REAL, PARAMETER :: tol = 1e-12      ! Tolerance for convergence  
+    INTEGER             :: k, KMAX, iErr
+    INTEGER, INTENT(IN) :: istart, iend, jstart, jend
+    REAL                :: Ax(N,N), Ap(N,N)
+    REAL                :: r(N,N), p(N,N)
+    REAL                :: pAp, lambda
+    REAL                :: alphak, alpha
+    REAL, PARAMETER     :: tol = 1e-12      ! Tolerance for convergence  
     !==================================================================================================!
+    PRINT *, 'Errore 1'
     x = b                 ! Initial guess   
-    CALL matop2D(Ax,x,N)  ! Matrix-matrix multiplication (it is implemented into the main file)
+    PRINT *, 'Errore 2'
+#ifdef PARALLEL    
+    CALL matop2D(Ax,x,N,istart,iend,jstart,jend)  ! Matrix-matrix multiplication (it is implemented into the main file)
+#else
+    CALL matop2D(Ax,x,N)  
+#endif
     r = b - Ax            ! Residual   
     p = r                 ! Search direction = max. descent   
     alphak = SUM(r*r) 
@@ -43,7 +50,11 @@ SUBROUTINE CG(N,x,b)
             RETURN
         ENDIF
         !==============================================================================================!
-        CALL matop2D(Ap,p,N)    
+#ifdef PARALLEL    
+        CALL matop2D(Ap,p,N,istart,iend,jstart, jend) 
+#else        
+        CALL matop2D(Ap,p,N) 
+#endif   
         pAp    = SUM(p*Ap)        
         lambda = alphak / pAp
         x      = x + lambda*p
@@ -53,13 +64,14 @@ SUBROUTINE CG(N,x,b)
         alphak = alpha
         !==============================================================================================!
     ENDDO   ! k cycle
-    !==================================================================================================!
-    ! TODO our problem is that our conjugate gradient do not converge.
-    IF(k.GE.KMAX) THEN
+       IF(k.GE.KMAX) THEN
         PRINT *, ' ERROR. Conjugate gradient did not converge! ', SQRT(alphak)
         PRINT *, k
         !STOP     
     ENDIF
+    !==================================================================================================!
+
+
 !======================================================================================================!
     END SUBROUTINE CG
     
