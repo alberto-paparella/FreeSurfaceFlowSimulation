@@ -365,7 +365,8 @@ PROGRAM FS2D
     REAL               :: umax, au, av, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
 #ifdef PARALLEL   
-    INTEGER             :: LCPU, RCPU, MsgLength, nMsg 
+    INTEGER             :: COMM2D               ! Cartesian MPI communicator 
+    INTEGER             :: LCPU, RCPU,TCPU, BCPU, MsgLength, nMsg , source
     REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
     INTEGER             :: send_request(2), recv_request(2) 
     INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)
@@ -375,9 +376,7 @@ PROGRAM FS2D
         !
         INTEGER                 :: status(MPI_STATUS_SIZE)
         INTEGER                 :: myrank, nCPU, iErr 
-        INTEGER                 :: AUTO_REAL, source
-        INTEGER                 :: COMM2D              ! Cartesian MPI communicator 
-        INTEGER                 :: TCPU, BCPU, LCPU, RCPU  ! neighbors of myrank
+        INTEGER                 :: AUTO_REAL
         INTEGER                 :: nElem, istart, iend, jstart, jend
         INTEGER, ALLOCATABLE    :: mycoords(:)   ! cell coords of the subgrid
         INTEGER                 :: x_thread      ! number of threads in x-dir  
@@ -389,11 +388,81 @@ PROGRAM FS2D
     REAL       :: WCT1, WCT2           ! Wall clock times 
     WCT1 = 0. 
     WCT2 = 0.
+    
 #ifdef PARALLEL
     CALL MPI_INIT(MPI%iErr)
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
     CALL MPI_COMM_SIZE(MPI_COMM_WORLD, MPI%nCPU,   MPI%iErr)
+  
+    IF( MPI%myrank.EQ.0 ) THEN
+        WRITE(*,'(a)') '|----------------------------------------|'
+        WRITE(*,'(a)') '|  START of CARTESIAN GRID PARTITIONING  |'
+        WRITE(*,'(a)') '|----------------------------------------|'
+    ENDIF  
+     
+    print *, 'Numero di cpu che sto utilizzando e''', MPI%nCPU
+  
+  ! 1.1) Check the number of CPUs
+  !
+    IF(MOD(MPI%nCPU,2).NE.0) THEN
+        WRITE(*,'(a)') 'ERROR. The number of CPUs must be even.'
+        CALL MPI_FINALIZE(MPI%iErr) 
+        STOP
+    ENDIF
+  !
+    CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
+  !
+  ! 2) Create the Cartesian topology
+  !
+  ! 2.1) Check the mesh
+  !
+    IF(MOD(IMAX,2).NE.0) THEN
+        WRITE(*,'(a)') 'ERROR. The number of IMAX points must be even.'
+        STOP
+    ENDIF
+    IF(MOD(JMAX,2).NE.0) THEN
+        WRITE(*,'(a)') 'ERROR. The number of JMAX points must be even.'
+        STOP
+    ENDIF
+  !
+  ! 2.2) Split the mesh among different CPUs
+  !
+    IF( MPI%myrank.EQ.0 ) THEN
+        WRITE(*,'(a)') '| Starting domain decomposition... '
+    ENDIF
+    !
+
+    
+    CALL MPI_CART_CREATE(MPI_COMM_WORLD,2,(/MPI%x_thread, MPI%y_thread/),.FALSE.,.TRUE.,COMM2D,MPI%iErr)
+    
     !==================================================================================================!
+    !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
+ 
+    !mi dicono quale è la cpu che ho a dx e quale ho a sx
+    CALL MPI_CART_SHIFT(COMM2D,0, 1,source,RCPU,MPI%iErr)  ! x-dir, right
+    CALL MPI_CART_SHIFT(COMM2D,0,-1,source,LCPU,MPI%iErr) ! x-dir, left
+    CALL MPI_CART_SHIFT(COMM2D,1,1,source,TCPU,MPI%iErr)  ! y-dir, top
+    CALL MPI_CART_SHIFT(COMM2D,1,-1,source,BCPU,MPI%iErr) ! y-dir, bottom
+    !
+    
+    CALL MPI_CART_COORDS(COMM2D,MPI%myrank, 2 ,MPI%mycoords,MPI%iErr)
+    MPI%nElem  = (MPI%iend - MPI%istart +1)* (MPI%jend - MPI%jstart +1)
+    MPI%istart = 1 + MPI%myrank*MPI%nElem 
+    MPI%iend  = MPI%istart + MPI%nElem - 1 
+    MPI%jstart = 1 + MPI%myrank*MPI%nElem 
+    MPI%jend  = MPI%jstart + MPI%nElem - 1
+    
+       
+    !MPI%IMAX = IMAX/MPI%x_thread 
+    !MPI%JAMX = JMAX/MPI%y_thread 
+    !MPI%iStart = 1 + MPI%mycoords(1)*MPI%IMAX 
+    !MPI%iEnd   = MPI%iStart + MPI%IMAX - 1 
+    !MPI%jStart = 1 + MPI%mycoords(2)*MPI%JMAX
+    !MPI%jEnd   = MPI%jStart + MPI%JMAX - 1
+    
+    
+    !==================================================================================================!    
+      !==================================================================================================!
     ! realtest
     ! We differentiate between single-precision and double-precision values
     !==================================================================================================!
@@ -423,54 +492,6 @@ PROGRAM FS2D
          
          STOP 
     ENDIF
-    !
-    ! 1.1) Check the number of CPUs
-    !
-      IF(MOD(MPI%nCPU,2).NE.0) THEN
-        WRITE(*,'(a)') 'ERROR. The number of CPUs must be even.'
-        CALL MPI_FINALIZE(MPI%iErr) 
-        STOP
-      ENDIF
-      !
-    CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
-    
-    
-    !ALLOCATE ( dims(n), periods(n), MPI%mycoords(n) )
-    !dims = (/MPI%x_thread, MPI%y_thread/)
-    !periods = .FALSE.
-    
-    
-    CALL MPI_CART_CREATE(MPI_COMM_WORLD,2,(/MPI%x_thread, MPI%y_thread/),.FALSE.,.TRUE.,MPI%COMM2D,MPI%iErr)
-    !CALL MPI_COMM_RANK(COMM2D,MPI%myrank,MPI%iErr)
-    !PRINT *, 'YUPPIE!'
-    !PAUSE
-    
-    !==================================================================================================!
-    !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
- 
-    !mi dicono quale è la cpu che ho a dx e quale ho a sx
-    CALL MPI_CART_SHIFT(MPI%COMM2D,0, 1,MPI%source,RCPU,MPI%iErr)  ! x-dir, right
-    CALL MPI_CART_SHIFT(MPI%COMM2D,0,-1,MPI%source,LCPU,MPI%iErr) ! x-dir, left
-    CALL MPI_CART_SHIFT(MPI%COMM2D,1,1,MPI%source,MPI%TCPU,MPI%iErr)  ! y-dir, top
-    CALL MPI_CART_SHIFT(MPI%COMM2D,1,-1,MPI%source,MPI%BCPU,MPI%iErr) ! y-dir, bottom
-    !
-    CALL MPI_CART_COORDS(MPI%COMM2D,MPI%myrank, n ,MPI%mycoords,MPI%iErr)
-    MPI%nElem  = (MPI%iend - MPI%istart +1)* (MPI%jend - MPI%jstart +1)
-    MPI%istart = 1 + MPI%myrank*MPI%nElem 
-    MPI%iend  = MPI%istart + MPI%nElem - 1 
-    MPI%jstart = 1 + MPI%myrank*MPI%nElem 
-    MPI%jend  = MPI%jstart + MPI%nElem - 1
-    
-       
-    !MPI%IMAX = IMAX/MPI%x_thread 
-    !MPI%JAMX = JMAX/MPI%y_thread 
-    !MPI%iStart = 1 + MPI%mycoords(1)*MPI%IMAX 
-    !MPI%iEnd   = MPI%iStart + MPI%IMAX - 1 
-    !MPI%jStart = 1 + MPI%mycoords(2)*MPI%JMAX
-    !MPI%jEnd   = MPI%jStart + MPI%JMAX - 1
-    
-    
-    !==================================================================================================!    
 #else
     MPI%myrank = 0              ! If the code is not compiled in parallel, then there is only one CPU ...
     MPI%nCPU   = 1              ! ...
@@ -586,7 +607,7 @@ PROGRAM FS2D
         ENDDO
     ENDDO
     
-    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+ !   CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
 
     PRINT *, eta
 #else
