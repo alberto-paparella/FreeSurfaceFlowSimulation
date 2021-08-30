@@ -46,36 +46,6 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
         
-#ifdef PARALLEL
-    ! Coordinates
-    DO i = istart, iend
-        WRITE(DataUnit,*) xb(i)
-    ENDDO
-    DO j = jstart, jend
-        WRITE(DataUnit,*) yb(j)
-    ENDDO 
-    ! Pressure
-    DO i = istart, iend
-        DO j= jstart, jend
-            WRITE(DataUnit,*) eta(i,j)
-        ENDDO
-    ENDDO     
-    ! Velocity (interpolation at barycenters)
-    ! Velocity on the x axys
-    DO i = istart, iend
-        DO j= jstart, jend
-            ub = 0.5 * ( u(i,j) + u(i+1,j) )  
-            WRITE(DataUnit,*) ub
-        ENDDO
-    ENDDO
-    ! Velocity on the y axys
-    DO i = istart, iend
-        DO j= jstart, jend
-            vb = 0.5 * ( v(i,j) + v(i,j+1) )  
-            WRITE(DataUnit,*) vb
-        ENDDO
-    ENDDO
-#else
     DO i = 1, IMAX
         WRITE(DataUnit,*) xb(i)
     ENDDO  
@@ -103,8 +73,7 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
             vb = 0.5 * ( v(i,j) + v(i,j+1) )  
             WRITE(DataUnit,*) vb
         ENDDO
-    ENDDO
-#endif    
+    ENDDO   
 #else
     ! Current time 
     WRITE(DataUnit,*) 'TITLE = "CURRENT TIME ', time, ' "'   

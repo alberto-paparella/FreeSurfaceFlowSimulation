@@ -374,11 +374,9 @@ PROGRAM FS2D
     TYPE tMPI
         !
         INTEGER                 :: status(MPI_STATUS_SIZE)
-        LOGICAL, ALLOCATABLE    :: periods(:)
-        INTEGER, ALLOCATABLE    :: dims(:)
         INTEGER                 :: myrank, nCPU, iErr 
         INTEGER                 :: AUTO_REAL, source
-        INTEGER                 :: COMM_CART               ! Cartesian MPI communicator 
+        INTEGER                 :: COMM2D              ! Cartesian MPI communicator 
         INTEGER                 :: TCPU, BCPU, LCPU, RCPU  ! neighbors of myrank
         INTEGER                 :: nElem, istart, iend, jstart, jend
         INTEGER, ALLOCATABLE    :: mycoords(:)   ! cell coords of the subgrid
@@ -437,13 +435,13 @@ PROGRAM FS2D
     CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
     
     
-    ALLOCATE ( dims(n), periods(n), MPI%mycoords(n) )
-    dims = (/MPI%x_thread, MPI%y_thread/)
-    periods = .FALSE.
+    !ALLOCATE ( dims(n), periods(n), MPI%mycoords(n) )
+    !dims = (/MPI%x_thread, MPI%y_thread/)
+    !periods = .FALSE.
     
     
-    CALL MPI_CART_CREATE (MPI_COMM_WORLD,n,dims,periods,.TRUE.,COMM_CART,MPI%iErr)
-    CALL MPI_COMM_RANK(COMM_CART,MPI%myrank,MPI%iErr)
+    CALL MPI_CART_CREATE(MPI_COMM_WORLD,2,(/MPI%x_thread, MPI%y_thread/),.FALSE.,.TRUE.,MPI%COMM2D,MPI%iErr)
+    !CALL MPI_COMM_RANK(COMM2D,MPI%myrank,MPI%iErr)
     !PRINT *, 'YUPPIE!'
     !PAUSE
     
@@ -451,12 +449,12 @@ PROGRAM FS2D
     !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
  
     !mi dicono quale è la cpu che ho a dx e quale ho a sx
-    CALL MPI_CART_SHIFT(COMM_CART,0, 1,source,RCPU,MPI%iErr)  ! x-dir, right
-    CALL MPI_CART_SHIFT(COMM_CART,0,-1,source,LCPU,MPI%iErr) ! x-dir, left
-    CALL MPI_CART_SHIFT(COMM_CART,1,1,source,TCPU,MPI%iErr)  ! y-dir, top
-    CALL MPI_CART_SHIFT(COMM_CART,1,-1,source,BCPU,MPI%iErr) ! y-dir, bottom
+    CALL MPI_CART_SHIFT(MPI%COMM2D,0, 1,MPI%source,RCPU,MPI%iErr)  ! x-dir, right
+    CALL MPI_CART_SHIFT(MPI%COMM2D,0,-1,MPI%source,LCPU,MPI%iErr) ! x-dir, left
+    CALL MPI_CART_SHIFT(MPI%COMM2D,1,1,MPI%source,MPI%TCPU,MPI%iErr)  ! y-dir, top
+    CALL MPI_CART_SHIFT(MPI%COMM2D,1,-1,MPI%source,MPI%BCPU,MPI%iErr) ! y-dir, bottom
     !
-    CALL MPI_CART_COORDS(COMM_CART,MPI%myrank, n ,MPI%mycoords,MPI%iErr)
+    CALL MPI_CART_COORDS(MPI%COMM2D,MPI%myrank, n ,MPI%mycoords,MPI%iErr)
     MPI%nElem  = (MPI%iend - MPI%istart +1)* (MPI%jend - MPI%jstart +1)
     MPI%istart = 1 + MPI%myrank*MPI%nElem 
     MPI%iend  = MPI%istart + MPI%nElem - 1 
@@ -947,7 +945,7 @@ PROGRAM FS2D
         ENDIF 
     
 #ifdef PARALLEL
-    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+    CALL MPI_GATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,0,MPI_COMM_WORLD,MPI%iErr)
     IF(MPI%myrank.EQ.0) THEN
     CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
     ENDIF
