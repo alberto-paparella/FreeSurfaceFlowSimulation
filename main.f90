@@ -372,9 +372,19 @@ PROGRAM FS2D
 #endif    
     !==================================================================================================!
     TYPE tMPI
-       INTEGER :: myrank, nCPU, iErr 
-       INTEGER :: AUTO_REAL
-       INTEGER :: nElem, istart, iend, jstart, jend, kstart, kend
+        !
+        INTEGER                 :: status(MPI_STATUS_SIZE)
+        LOGICAL, ALLOCATABLE    :: periods(:)
+        INTEGER, ALLOCATABLE    :: dims(:)
+        INTEGER                 :: myrank, nCPU, iErr 
+        INTEGER                 :: AUTO_REAL, source
+        INTEGER                 :: COMM_CART               ! Cartesian MPI communicator 
+        INTEGER                 :: TCPU, BCPU, LCPU, RCPU  ! neighbors of myrank
+        INTEGER                 :: nElem, istart, iend, jstart, jend
+        INTEGER, ALLOCATABLE    :: mycoords(:)   ! cell coords of the subgrid
+        INTEGER                 :: x_thread      ! number of threads in x-dir  
+        INTEGER                 :: y_thread      ! number of threads in y-dir
+
     END TYPE tMPI 
     TYPE(tMPI) :: MPI
     REAL       :: realtest
@@ -415,16 +425,53 @@ PROGRAM FS2D
          
          STOP 
     ENDIF
+    !
+    ! 1.1) Check the number of CPUs
+    !
+      IF(MOD(MPI%nCPU,2).NE.0) THEN
+        WRITE(*,'(a)') 'ERROR. The number of CPUs must be even.'
+        CALL MPI_FINALIZE(MPI%iErr) 
+        STOP
+      ENDIF
+      !
+    CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
     
+    
+    ALLOCATE ( dims(n), periods(n), MPI%mycoords(n) )
+    dims = (/MPI%x_thread, MPI%y_thread/)
+    periods = .FALSE.
+    
+    
+    CALL MPI_CART_CREATE (MPI_COMM_WORLD,n,dims,periods,.TRUE.,COMM_CART,MPI%iErr)
+    CALL MPI_COMM_RANK(COMM_CART,MPI%myrank,MPI%iErr)
     !PRINT *, 'YUPPIE!'
     !PAUSE
     
     !==================================================================================================!
-    MPI%nElem  = (IMAX*JMAX)/MPI%nCPU
+    !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
+ 
+    !mi dicono quale è la cpu che ho a dx e quale ho a sx
+    CALL MPI_CART_SHIFT(COMM_CART,0, 1,source,RCPU,MPI%iErr)  ! x-dir, right
+    CALL MPI_CART_SHIFT(COMM_CART,0,-1,source,LCPU,MPI%iErr) ! x-dir, left
+    CALL MPI_CART_SHIFT(COMM_CART,1,1,source,TCPU,MPI%iErr)  ! y-dir, top
+    CALL MPI_CART_SHIFT(COMM_CART,1,-1,source,BCPU,MPI%iErr) ! y-dir, bottom
+    !
+    CALL MPI_CART_COORDS(COMM_CART,MPI%myrank, n ,MPI%mycoords,MPI%iErr)
+    MPI%nElem  = (MPI%iend - MPI%istart +1)* (MPI%jend - MPI%jstart +1)
     MPI%istart = 1 + MPI%myrank*MPI%nElem 
     MPI%iend  = MPI%istart + MPI%nElem - 1 
     MPI%jstart = 1 + MPI%myrank*MPI%nElem 
     MPI%jend  = MPI%jstart + MPI%nElem - 1
+    
+       
+    !MPI%IMAX = IMAX/MPI%x_thread 
+    !MPI%JAMX = JMAX/MPI%y_thread 
+    !MPI%iStart = 1 + MPI%mycoords(1)*MPI%IMAX 
+    !MPI%iEnd   = MPI%iStart + MPI%IMAX - 1 
+    !MPI%jStart = 1 + MPI%mycoords(2)*MPI%JMAX
+    !MPI%jEnd   = MPI%jStart + MPI%JMAX - 1
+    
+    
     !==================================================================================================!    
 #else
     MPI%myrank = 0              ! If the code is not compiled in parallel, then there is only one CPU ...
@@ -451,11 +498,11 @@ PROGRAM FS2D
     !==================================================================================================!
     TestName = 'Gaussian_test'
     ! Concerning x axys
-    IMAX   = 500    ! Max index for x coordinates
+    IMAX   = 20    ! Max index for x coordinates
     xL     = -0.5   ! Left boundary for x coordinates
     xR     = 0.5    ! Right boundary for y coordinates
     ! Concerning y axys
-    JMAX   = 500    ! Max index for y coordinates
+    JMAX   = 4   ! Max index for y coordinates
     yD     = -0.5   ! Left boundary for y coordinates
     yU     = 0.5    ! Right boundary for y coordinates
     ! Initial Conditions
@@ -526,6 +573,7 @@ PROGRAM FS2D
     ! 2.1) Free surface elevation (barycenters)
     !==================================================================================================!
 #ifdef PARALLEL
+
  PRINT *, eta
  print *, '---'
     DO i= MPI%istart, MPI%iend
@@ -539,8 +587,10 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
     ENDDO
+    
+    CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+
     PRINT *, eta
-    CALL MPI_GATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -572,7 +622,9 @@ PROGRAM FS2D
             bv(i, j) = 0.0  ! Zero bottom elevation
         ENDDO
     ENDDO
+    
 #ifdef PARALLEL
+
     !==================================================================================================!
     ! Total water depth
     !==================================================================================================!
@@ -736,7 +788,7 @@ PROGRAM FS2D
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
         ENDDO
-        
+
         CALL CG(IMAX,eta,rhs,MPI%istart, MPI%iend, MPI%jstart, MPI%jend)   !,MPI%istart, MPI%iend, MPI%jstart, MPI%jend
         PRINT *, 'Ciao'
         
