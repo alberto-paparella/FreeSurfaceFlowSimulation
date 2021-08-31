@@ -48,7 +48,8 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: v  (:, :)    ! Velocity on the y axis
     REAL, ALLOCATABLE   :: Fu (:, :)    ! Convective and viscous terms operator
     REAL, ALLOCATABLE   :: Fv (:, :)    ! Convective and viscous terms operator for y axis
-    REAL, ALLOCATABLE   :: eta(:, :)    ! Pressure
+    REAL, ALLOCATABLE   :: eta(:, :)    ! Pressure (case of parallel execution: distributed among CPUs)
+    REAL, ALLOCATABLE   :: eta1(:,:)    ! Pressure (used to gather the distributed parts) 
     REAL, ALLOCATABLE   :: Hu (:, :)    ! Total wather depth for u mesh
     REAL, ALLOCATABLE   :: Hv (:, :)    ! Total wather depth for v mesh
     REAL, ALLOCATABLE   :: bu (:, :)    ! Bottom elevation for u mesh

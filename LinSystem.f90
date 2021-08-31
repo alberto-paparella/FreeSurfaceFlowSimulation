@@ -32,11 +32,11 @@ SUBROUTINE CG(N,x,b,istart, iend, jstart, jend)
     PRINT *, 'Errore 1'
     x = b                 ! Initial guess   
     PRINT *, 'Errore 2'
-#ifdef PARALLEL    
+!#ifdef PARALLEL    
     CALL matop2D(Ax,x,N,istart,iend,jstart,jend)  ! Matrix-matrix multiplication (it is implemented into the main file)
-#else
-    CALL matop2D(Ax,x,N)  
-#endif
+!#else
+    !CALL matop2D(Ax,x,N)  
+!#endif
     r = b - Ax            ! Residual   
     p = r                 ! Search direction = max. descent   
     alphak = SUM(r*r) 
@@ -50,11 +50,11 @@ SUBROUTINE CG(N,x,b,istart, iend, jstart, jend)
             RETURN
         ENDIF
         !==============================================================================================!
-#ifdef PARALLEL    
+!#ifdef PARALLEL    
         CALL matop2D(Ap,p,N,istart,iend,jstart, jend) 
-#else        
-        CALL matop2D(Ap,p,N) 
-#endif   
+!#else        
+        !CALL matop2D(Ap,p,N) 
+!#endif   
         pAp    = SUM(p*Ap)        
         lambda = alphak / pAp
         x      = x + lambda*p

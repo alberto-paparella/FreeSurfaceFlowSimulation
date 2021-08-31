@@ -46,30 +46,30 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     ! Coordinates
     ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
         
-    DO i = 1, IMAX
+    DO i = istart, iend
         WRITE(DataUnit,*) xb(i)
     ENDDO  
-    DO j = 1, JMAX
+    DO j = jstart, jend
         WRITE(DataUnit,*) yb(j)
     ENDDO  
     ! Pressure
     ! For each x eta coordinate, i print JMAX values for y eta coordinate
-    DO i = 1, IMAX
-        DO j= 1, JMAX     
-            WRITE(DataUnit,*) eta(i,j)
+    DO i = istart, iend
+        DO j = jstart, jend   
+            WRITE(DataUnit,*) eta1(i,j)
         ENDDO
     ENDDO    
     ! Velocity (interpolation at barycenters)
     ! Velocity on the x axys
-    DO i = 1, IMAX
-        DO j = 1, JMAX
+    DO i = istart, iend
+        DO j = jstart, jend   
             ub = 0.5 * ( u(i,j) + u(i+1,j) )  
             WRITE(DataUnit,*) ub
         ENDDO
     ENDDO
     ! Velocity on the y axys
-    DO i = 1, IMAX
-        DO j = 1, JMAX
+    DO i = istart, iend
+        DO j = jstart, jend   
             vb = 0.5 * ( v(i,j) + v(i,j+1) )  
             WRITE(DataUnit,*) vb
         ENDDO

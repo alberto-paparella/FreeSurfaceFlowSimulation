@@ -351,8 +351,8 @@
 !======================================================================================================!
 !PARALLELIZATION 
 !======================================================================================================!
-
-!#define PARALLEL 
+!#define PARALLEL   ! Already defined in project properties
+!======================================================================================================!
 PROGRAM FS2D
     !==================================================================================================!
     USE VarDef_mod  ! In this module we defined the variables we are going to use
@@ -361,109 +361,37 @@ PROGRAM FS2D
 	INCLUDE 'mpif.h'
 #endif    
     !==================================================================================================!
-    INTEGER            :: i, j, n    
+    INTEGER            :: i, j, n   ! indices
     REAL               :: umax, au, av, s0, ct, cs , a , b
     REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
-#ifdef PARALLEL   
-    INTEGER             :: COMM2D               ! Cartesian MPI communicator 
-    INTEGER             :: LCPU, RCPU,TCPU, BCPU, MsgLength, nMsg , source
-    REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
+#ifdef PARALLEL 
+    INTEGER             :: LCPU, RCPU, MsgLength, nMsg
+    !REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
+    REAL, ALLOCATABLE   :: send_messageL(:), send_messageR(:), recv_messageL(:), recv_messageR(:)
     INTEGER             :: send_request(2), recv_request(2) 
     INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)
 #endif    
     !==================================================================================================!
     TYPE tMPI
-        !
-        !INTEGER                 :: COMM2D               ! Cartesian MPI communicator 
-        INTEGER                 :: status(MPI_STATUS_SIZE)
         INTEGER                 :: myrank, nCPU, iErr 
         INTEGER                 :: AUTO_REAL
         INTEGER                 :: nElem, istart, iend, jstart, jend
-        INTEGER, ALLOCATABLE    :: mycoords(:)   ! cell coords of the subgrid
-        INTEGER                 :: x_thread      ! number of threads in x-dir  
-        INTEGER                 :: y_thread      ! number of threads in y-dir
-
     END TYPE tMPI 
     TYPE(tMPI) :: MPI
     REAL       :: realtest
     REAL       :: WCT1, WCT2           ! Wall clock times 
     WCT1 = 0. 
-    WCT2 = 0.
-    
+    WCT2 = 0.   
+    !==================================================================================================!
+    ! SETTINGS OF THE COMPUTATION (PART 1)
+    !==================================================================================================!
+    IMAX   = 500    ! Max index for x coordinates
+    JMAX   = 500    ! Max index for y coordinates
 #ifdef PARALLEL
     CALL MPI_INIT(MPI%iErr)
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
     CALL MPI_COMM_SIZE(MPI_COMM_WORLD, MPI%nCPU,   MPI%iErr)
-  
-    IF( MPI%myrank.EQ.0 ) THEN
-        WRITE(*,'(a)') '|----------------------------------------|'
-        WRITE(*,'(a)') '|  START of CARTESIAN GRID PARTITIONING  |'
-        WRITE(*,'(a)') '|----------------------------------------|'
-    ENDIF  
-     
-    print *, 'Numero di cpu che sto utilizzando e''', MPI%nCPU
-  
-  ! 1.1) Check the number of CPUs
-  !
-    IF(MOD(MPI%nCPU,2).NE.0) THEN
-        WRITE(*,'(a)') 'ERROR. The number of CPUs must be even.'
-        CALL MPI_FINALIZE(MPI%iErr) 
-        STOP
-    ENDIF
-  
-    CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
-  !
-  ! 2) Create the Cartesian topology
-  !
-  ! 2.1) Check the mesh
-  !
-    IF(MOD(IMAX,2).NE.0) THEN
-        WRITE(*,'(a)') 'ERROR. The number of IMAX points must be even.'
-        STOP
-    ENDIF
-    IF(MOD(JMAX,2).NE.0) THEN
-        WRITE(*,'(a)') 'ERROR. The number of JMAX points must be even.'
-        STOP
-    ENDIF
-  !
-  ! 2.2) Split the mesh among different CPUs
-  !
-    IF( MPI%myrank.EQ.0 ) THEN
-        WRITE(*,'(a)') '| Starting domain decomposition... '
-    ENDIF
-    !
-
-    
-    CALL MPI_CART_CREATE(MPI_COMM_WORLD,2,(/MPI%x_thread, MPI%y_thread/),.FALSE.,.TRUE.,COMM2D,MPI%iErr)
-   
     !==================================================================================================!
-    !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
-    
-    !mi dicono quale è la cpu che ho a dx e quale ho a sx
-    CALL MPI_CART_SHIFT(COMM2D,0, 1,source,RCPU,MPI%iErr)  ! x-dir, right
-    CALL MPI_CART_SHIFT(COMM2D,0,-1,source,LCPU,MPI%iErr) ! x-dir, left
-    CALL MPI_CART_SHIFT(COMM2D,1,1,source,TCPU,MPI%iErr)  ! y-dir, top
-    CALL MPI_CART_SHIFT(COMM2D,1,-1,source,BCPU,MPI%iErr) ! y-dir, bottom
-    !
-    
-    CALL MPI_CART_COORDS(COMM2D,MPI%myrank, 2 ,MPI%mycoords,MPI%iErr)
-    MPI%nElem  = (MPI%iend - MPI%istart +1)* (MPI%jend - MPI%jstart +1)
-    MPI%istart = 1 + MPI%myrank*MPI%nElem 
-    MPI%iend  = MPI%istart + MPI%nElem - 1 
-    MPI%jstart = 1 + MPI%myrank*MPI%nElem 
-    MPI%jend  = MPI%jstart + MPI%nElem - 1
-    
-    !   
-    !MPI%IMAX = IMAX/MPI%x_thread 
-    !MPI%JAMX = JMAX/MPI%y_thread 
-    !MPI%iStart = 1 + MPI%mycoords(1)*MPI%IMAX 
-    !MPI%iEnd   = MPI%iStart + MPI%IMAX - 1 
-    !MPI%jStart = 1 + MPI%mycoords(2)*MPI%JMAX
-    !MPI%jEnd   = MPI%jStart + MPI%JMAX - 1
-    
-    
-    !==================================================================================================!    
-      !==================================================================================================!
     ! realtest
     ! We differentiate between single-precision and double-precision values
     !==================================================================================================!
@@ -487,21 +415,23 @@ PROGRAM FS2D
              PRINT *, ' IMAX = ', IMAX, ' nCPU = ', MPI%nCPU
          ENDIF  
          CALL MPI_FINALIZE(MPI%iErr)
-         
-         PRINT *, 'Stopping here.'
-         PAUSE
-         
          STOP 
     ENDIF
+    ! Distribute elements among the processors
+    ! Matrices are stored in sequential order
+    ! TRY
+    MPI%nElem   = IMAX/MPI%nCPU
+    MPI%jstart  = 1 + MPI%myrank*MPI%nElem
+    MPI%jend    = MPI%jstart + MPI%nElem - 1
 #else
-    MPI%myrank = 0              ! If the code is not compiled in parallel, then there is only one CPU ...
-    MPI%nCPU   = 1              ! ...
-    MPI%AUTO_REAL = -1          ! ... and the data type MPI_AUTO_REAL is not needed 
-    MPI%istart = 1
-    MPI%iend   = IMAX  
-    MPI%jstart = 1
-    MPI%jend   = JMAX 
+    MPI%myrank      = 0             ! If the code is not compiled in parallel, then there is only one CPU ...
+    MPI%nCPU        = 1             ! ...
+    MPI%AUTO_REAL   = -1            ! ... and the data type MPI_AUTO_REAL is not needed
+    MPI%jstart      = 1
+    MPI%jend        = JMAX  
 #endif
+    MPI%istart      = 1
+    MPI%iend        = IMAX
     !==================================================================================================!    
     IF(MPI%myrank.EQ.0) THEN
     WRITE(*,'(a)') ' | ================================================================== | '
@@ -512,17 +442,16 @@ PROGRAM FS2D
     WRITE(*,'(a,i10)') '         Total number of CPUs used : ', MPI%nCPU       
     WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' '
-    ENDIF   
+    ENDIF
+      
     !==================================================================================================!
-    ! SETTINGS OF THE COMPUTATION
+    ! SETTINGS OF THE COMPUTATION (PART 2)
     !==================================================================================================!
     TestName = 'Gaussian_test'
     ! Concerning x axys
-    IMAX   = 20    ! Max index for x coordinates
     xL     = -0.5   ! Left boundary for x coordinates
     xR     = 0.5    ! Right boundary for y coordinates
     ! Concerning y axys
-    JMAX   = 4   ! Max index for y coordinates
     yD     = -0.5   ! Left boundary for y coordinates
     yU     = 0.5    ! Right boundary for y coordinates
     ! Initial Conditions
@@ -547,15 +476,16 @@ PROGRAM FS2D
     ALLOCATE( cmatj ( IMAX, JMAX ) )    ! Matrix c for j system
     ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs 
 #ifdef PARALLEL
-    ALLOCATE( eta(MPI%istart-1:MPI%iend+1, MPI%jstart-1:MPI%jend+1) )
+    ALLOCATE( eta1(IMAX,JMAX) )         ! Here I will import eta from the processors
+    ALLOCATE( eta(IMAX, MPI%jstart-1:MPI%jend+1) )  ! Ditributed eta
+    ALLOCATE( send_messageL(JMAX), send_messageR(JMAX) )
+    ALLOCATE( recv_messageL(JMAX), recv_messageR(JMAX) )
+    eta = 0.
+    eta1 = 0.
 #else
     ALLOCATE( eta( IMAX, JMAX )                           )
     eta = 0.
-#endif
-
-    !PRINT *, 'YUPPIE!'
-    !PAUSE
-   
+#endif   
     !==================================================================================================!
     ! 1) Computational domain 
     !==================================================================================================!
@@ -587,16 +517,18 @@ PROGRAM FS2D
     !==================================================================================================!
      IF(MPI%myrank.EQ.0) THEN
       WRITE(*,'(a)') '  Assigning initial condition... '
-     ENDIF
-   
+     ENDIF   
     !==================================================================================================!
     ! 2.1) Free surface elevation (barycenters)
     !==================================================================================================!
-#ifdef PARALLEL
-
- PRINT *, eta
- print *, '---'
-    DO i= MPI%istart, MPI%iend
+#ifdef PARALLEL   
+    !
+    ! We do some useful work here, e.g. update all internal elements of the domain, since we do non-blocking communication ! 
+    !
+    ! The main finite difference scheme is IDENTICAL to the serial code ! 
+    ! This is the simplicify and the beauty of MPI :-) 
+    !
+    DO i = MPI%istart, MPI%iend
         DO j = MPI%jstart, MPI%jend
             !===========================================================================================!
             ! Gaussian profile
@@ -608,9 +540,13 @@ PROGRAM FS2D
         ENDDO
     ENDDO
     
- !   CALL MPI_ALLGATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
-
-    PRINT *, eta
+    !
+    ! Collect all the data from each MPI subdomain
+    ! Collect from eta into eta1
+    DO i = MPI%istart, MPI%iend
+        !row = eta(i, MPI%jstart:MPI%jend)
+        CALL MPI_ALLGATHER(eta(i, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta1(i,:),MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
+    ENDDO
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -622,8 +558,7 @@ PROGRAM FS2D
             !===========================================================================================!
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
-     ENDDO
-   
+     ENDDO   
 #endif
     !==================================================================================================!
     ! 2.1) Velocity, bottom and total water depth (interfaces)
@@ -642,62 +577,51 @@ PROGRAM FS2D
             bv(i, j) = 0.0  ! Zero bottom elevation
         ENDDO
     ENDDO
-    
-#ifdef PARALLEL
-
     !==================================================================================================!
     ! Total water depth
     !==================================================================================================!
-    DO j = MPI%jstart, MPI%jend
-        ! Initialize first and last columns for Hu
-        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-    ENDDO
-    DO i= MPI%istart, MPI%iend
-        ! Initialize first and last rows for Hv
-        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
-    ENDDO
-    DO i = MPI%istart+1, MPI%iend-1
-        DO j = MPI%jstart, MPI%jend
-            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
-        ENDDO
-    ENDDO
-    DO i = MPI%istart, MPI%iend
-        DO j = MPI%jstart+1, MPI%jend-1
-            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
-        ENDDO
-    ENDDO
-#else    
     DO j = 1, JMAX
         ! Initialize first and last columns for Hu
-        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-    ENDDO
+        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta1( 1,    j ) )
+        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta1( IMAX, j ) )
+    ENDDO    
     DO i = 1, IMAX
         ! Initialize first and last rows for Hv
-        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
+        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta1( i, 1    ) )
+        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta1( i, JMAX ) )
     ENDDO
     DO i = 2, IMAX
         DO j = 1, JMAX
-            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta1( i - 1, j ), bu( i, j )+ eta1( i, j ) /) )
         ENDDO
     ENDDO
     DO i = 1, IMAX
         DO j = 2, JMAX
-            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta1( i, j - 1 ), bv( i, j )+ eta1( i, j ) /) )
         ENDDO
     ENDDO
-#endif    
     !==================================================================================================!
     ! Plot initial condition
-    !==================================================================================================!
-#ifdef PARALLEL    
-    CALL DataOutput(0, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
+    !==================================================================================================!    
+#ifdef PARALLEL
+    IF(MPI%myrank.EQ.0) THEN
+        CALL DataOutput(0, 1, IMAX, 1, JMAX, MPI%myrank)
+    ENDIF
 #else
-    CALL DataOutput(0)
-#endif    
+    CALL DataOutput(0, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, 1)
+#endif
+    
+    ! DEBUG
+#ifdef PARALLEL
+    IF(MPI%myrank.EQ.0) THEN
+        PRINT *, 'SUCCESS'
+    ENDIF
+    PAUSE
+#else
+    PRINT *, 'SUCCESS'
+    PAUSE
+#endif 
+
     tio = tio + dtio    
     !==================================================================================================!
     ! 3) Computation: main loop in time
@@ -818,8 +742,8 @@ PROGRAM FS2D
         nMsg = 2 
         CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
         CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
-        eta(MPI%istart-1, MPI%jstart-1)   = recv_messageL 
-        eta(MPI%iend+1, MPI%jend+1)       = recv_messageR
+        !eta(MPI%istart-1, MPI%jstart-1)   = recv_messageL 
+       ! eta(MPI%iend+1, MPI%jend+1)       = recv_messageR
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
@@ -906,7 +830,7 @@ PROGRAM FS2D
         ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
               ! 
 
-        CALL CG(IMAX,eta,rhs)
+        CALL CG(IMAX,eta,rhs, 1, IMAX, 1, JMAX)
         
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
