@@ -374,6 +374,7 @@ PROGRAM FS2D
     !==================================================================================================!
     TYPE tMPI
         !
+        !INTEGER                 :: COMM2D               ! Cartesian MPI communicator 
         INTEGER                 :: status(MPI_STATUS_SIZE)
         INTEGER                 :: myrank, nCPU, iErr 
         INTEGER                 :: AUTO_REAL
@@ -409,7 +410,7 @@ PROGRAM FS2D
         CALL MPI_FINALIZE(MPI%iErr) 
         STOP
     ENDIF
-  !
+  
     CALL MPI_BARRIER(MPI_COMM_WORLD, MPI%iErr)
   !
   ! 2) Create the Cartesian topology
@@ -434,10 +435,10 @@ PROGRAM FS2D
 
     
     CALL MPI_CART_CREATE(MPI_COMM_WORLD,2,(/MPI%x_thread, MPI%y_thread/),.FALSE.,.TRUE.,COMM2D,MPI%iErr)
-    
+   
     !==================================================================================================!
     !MPI%nElem2  = (IMAX*JMAX)/MPI%nCPU
- 
+    
     !mi dicono quale è la cpu che ho a dx e quale ho a sx
     CALL MPI_CART_SHIFT(COMM2D,0, 1,source,RCPU,MPI%iErr)  ! x-dir, right
     CALL MPI_CART_SHIFT(COMM2D,0,-1,source,LCPU,MPI%iErr) ! x-dir, left
@@ -452,7 +453,7 @@ PROGRAM FS2D
     MPI%jstart = 1 + MPI%myrank*MPI%nElem 
     MPI%jend  = MPI%jstart + MPI%nElem - 1
     
-       
+    !   
     !MPI%IMAX = IMAX/MPI%x_thread 
     !MPI%JAMX = JMAX/MPI%y_thread 
     !MPI%iStart = 1 + MPI%mycoords(1)*MPI%IMAX 
