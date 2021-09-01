@@ -49,13 +49,16 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: Fu (:, :)    ! Convective and viscous terms operator
     REAL, ALLOCATABLE   :: Fv (:, :)    ! Convective and viscous terms operator for y axis
     REAL, ALLOCATABLE   :: eta(:, :)    ! Pressure (case of parallel execution: distributed among CPUs)
-    REAL, ALLOCATABLE   :: eta1(:,:)    ! Pressure (used to gather the distributed parts) 
     REAL, ALLOCATABLE   :: Hu (:, :)    ! Total wather depth for u mesh
     REAL, ALLOCATABLE   :: Hv (:, :)    ! Total wather depth for v mesh
     REAL, ALLOCATABLE   :: bu (:, :)    ! Bottom elevation for u mesh
     REAL, ALLOCATABLE   :: bv (:, :)    ! Bottom elevation for v mesh
     REAL                :: nu           ! kinematic viscosity coefficient
     REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system
+    ! Support for parallelization
+    REAL, ALLOCATABLE   :: eta1(:,:)    ! Pressure (used to gather the distributed parts) 
+    REAL, ALLOCATABLE   :: u1  (:, :)    ! Velocity on the x axys
+    REAL, ALLOCATABLE   :: v1  (:, :)    ! Velocity on the y axis
     !==================================================================================================!
     ! Concerning time
     !==================================================================================================!
@@ -83,10 +86,11 @@ SUBROUTINE Allocate_Var
     y  = 0.
     yb = 0.
     !==================================================================================================!
-    ALLOCATE( u(   IMAX+1, JMAX   ), Fu( IMAX+1, JMAX   ) )
-    ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
-    ALLOCATE( Hu(  IMAX+1, JMAX   ), bu( IMAX+1, JMAX   ) )
-    ALLOCATE( Hv(  IMAX,   JMAX+1 ), bv( IMAX,   JMAX+1 ) )
+    !ALLOCATE( u(   IMAX+1, JMAX   ), Fu( IMAX+1, JMAX   ) )
+    !ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
+        
+    !ALLOCATE( bu( IMAX+1, JMAX   ) )
+    !ALLOCATE( bv( IMAX,   JMAX+1 ) )
     
     u   = 0.
     v   = 0.

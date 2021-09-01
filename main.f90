@@ -466,12 +466,30 @@ PROGRAM FS2D
     ! Maybe rhs must be of the sime dimensions of eta? (for parallelization)
     ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs for assembling the tridiagonal linear system
 #ifdef PARALLEL
-    ALLOCATE( eta1(IMAX,JMAX) )         ! Here I will import eta from the processors
-    ALLOCATE( eta(IMAX, MPI%jstart-1:MPI%jend+1) )  ! Ditributed eta
+    ! Distributed matrices
+    ALLOCATE( eta ( IMAX,   MPI%jstart-1:MPI%jend+1 ) )    
+    ALLOCATE( Hu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( Hv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
+    ALLOCATE( bu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( bv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )    
+    ALLOCATE( u   ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( Fu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( v   ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
+    ALLOCATE( Fv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
+    ! Buffers to gather from all processors
+    ALLOCATE( eta1( IMAX,   JMAX   ) )
+    ALLOCATE( u1  ( IMAX+1, JMAX   ) )
+    ALLOCATE( v1  ( IMAX,   JMAX+1 ) )
     eta = 0.
     eta1 = 0.
 #else
-    ALLOCATE( eta( IMAX, JMAX )                           ) 
+    ALLOCATE( eta( IMAX, JMAX )     )    
+    ALLOCATE( Hu(  IMAX+1, JMAX   ) )
+    ALLOCATE( Hv(  IMAX,   JMAX+1 ) )
+    ALLOCATE( bu( IMAX+1, JMAX   ) )
+    ALLOCATE( bv( IMAX,   JMAX+1 ) )
+    ALLOCATE( u(   IMAX+1, JMAX   ), Fu( IMAX+1, JMAX   ) )
+    ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
     eta = 0.   
 #endif   
     !==================================================================================================!
@@ -527,13 +545,6 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
     ENDDO
-    ! Collect all the data from each MPI subdomain
-    ! Collect from eta into eta1
-    DO i = MPI%istart, MPI%iend
-        CALL MPI_ALLGATHER(eta(i, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta1(i,:),MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
-    ENDDO
-    ! Finally, update eta
-    eta = eta1
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -551,7 +562,21 @@ PROGRAM FS2D
     ! 2.1) Velocity, bottom and total water depth (interfaces)
     !==================================================================================================!
     ! Note: u dimensions (IMAX + 1) * JMAX, while v dimensions are IMAX * (JMAX + 1)
-    !==================================================================================================!    
+    !==================================================================================================!
+#ifdef PARALLEL
+    DO i = MPI%istart, MPI%iend + 1
+        DO j = MPI%jstart, MPI%jend
+            u(i, j)  = 0.0  ! Fluid at rest
+            bu(i, j) = 0.0  ! Zero bottom elevation
+        ENDDO
+    ENDDO
+    DO i = MPI%istart, MPI%iend
+        DO j = MPI%jstart, MPI%jend + 1
+            v(i, j)  = 0.0  ! Fluid at rest
+            bv(i, j) = 0.0  ! Zero bottom elevation
+        ENDDO
+    ENDDO
+#else    
     DO i = 1, IMAX + 1
         DO j = 1, JMAX
             u(i, j)  = 0.0  ! Fluid at rest
@@ -564,9 +589,32 @@ PROGRAM FS2D
             bv(i, j) = 0.0  ! Zero bottom elevation
         ENDDO
     ENDDO
+#endif    
     !==================================================================================================!
     ! Total water depth
     !==================================================================================================!
+#ifdef PARALLEL
+    DO j = MPI%jstart, MPI%jend
+        ! Initialize first and last columns for Hu
+        Hu( MPI%istart, j ) = MAX( 0.0, bu( MPI%istart, j ) + eta( MPI%istart, j ) )
+        Hu( MPI%iend+1, j ) = MAX( 0.0, bu( MPI%iend+1, j ) + eta( MPI%iend,   j ) )
+    ENDDO    
+    DO i = MPI%istart, MPI%iend
+        ! Initialize first and last rows for Hv
+        Hv( i, MPI%jstart ) = MAX( 0.0, bv( i, MPI%jstart ) + eta( i, MPI%jstart ) )
+        Hv( i, MPI%jend+1 ) = MAX( 0.0, bv( i, MPI%jend+1 ) + eta( i, MPI%jend   ) )
+    ENDDO
+    DO i = MPI%istart+1, MPI%iend
+        DO j = MPI%jstart, MPI%jend
+            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+        ENDDO
+    ENDDO
+    DO i = MPI%istart, MPI%iend
+        DO j = MPI%jstart+1, MPI%jend
+            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+        ENDDO
+    ENDDO
+#else
     DO j = 1, JMAX
         ! Initialize first and last columns for Hu
         Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
@@ -587,10 +635,30 @@ PROGRAM FS2D
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
+#endif
     !==================================================================================================!
     ! Plot initial condition
     !==================================================================================================!
 #ifdef PARALLEL
+    ! Collect all the data from each MPI subdomain
+    ! Collect from eta into eta1
+    DO i = MPI%istart, MPI%iend
+        CALL MPI_ALLGATHER( eta( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, eta1(i,:), &
+                            MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+        CALL MPI_ALLGATHER( u( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(i,:), &
+                            MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+        ! v has one more column
+        CALL MPI_ALLGATHER( v( i, MPI%jstart:MPI%jend+1 ), MPI%nElem+1, MPI%AUTO_REAL, v1(i,:), &
+                            MPI%nElem+1, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+    ENDDO
+    ! u has one more line
+    CALL MPI_ALLGATHER( u( MPI%iend+1, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(MPI%iend+1,:), &
+                            MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+    ! Finally, update eta, u and v
+    eta = eta1
+    u   = u1
+    v   = v1
+    !==================================================================================================!
     IF(MPI%myrank.EQ.0) THEN    
         WRITE(*,'(a)') ' | '
         WRITE(*,'(a)') ' | Plotting initial condition ' 
@@ -609,13 +677,11 @@ PROGRAM FS2D
         WRITE(*,'(a)') ' | '
         WRITE(*,'(a)') ' | START of the COMPUTATION ' 
     ENDIF
-    !CALL MPI_BARRIER( MPI_COMM_WORLD, MPI%iErr )
 #ifdef PARALLEL
     WCT1 = MPI_WTime() 
 #else
     CALL CPU_TIME(WCT1) 
-#endif    
-    !
+#endif
     DO n = 1, NMAX
         !==============================================================================================!
         ! 3.1) Compute the time step
@@ -636,9 +702,25 @@ PROGRAM FS2D
         ENDIF
         !==============================================================================================!
         ! 3.2) Compute the operator Fu
-        !==============================================================================================!        
-        ! Fu = u    ! Case without considering Fu
-        ! BC: no-slip wall
+        !==============================================================================================!
+#ifdef PARALLEL
+        ! First row and last row initialized to zeros
+        Fu( MPI%istart, : ) = u( MPI%istart, : )
+        Fu( MPI%iend+1, : ) = u( MPI%iend+1, : )
+        DO i = MPI%istart + 1, MPI%iend
+            DO j = MPI%jstart, MPI%jend
+                au = ABS( u(i,j) )
+                ! Explicit upwind
+                ! In our case, nu = 0
+                !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
+                !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
+                !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
+                Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+            ENDDO
+        ENDDO
+#else
         ! First row and last row initialized to zeros
         Fu( 1      , : ) = u(1,:)
         Fu( IMAX+1 , : ) = u(IMAX+1,:)
@@ -655,11 +737,24 @@ PROGRAM FS2D
                         + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
             ENDDO
         ENDDO
+#endif
         !==============================================================================================!
         ! 3.3) Compute the operator Fv
         !==============================================================================================!
-        ! Fv = v    ! Case without considering Fv
-        ! BC: no-slip wall
+#ifdef PARALLEL
+        ! First column and last column initialized to zeros
+        Fv( :, MPI%jstart ) = v( :, MPI%jstart )
+        Fv( :, MPI%jend+1 ) = v( :, MPI%jend+1 )
+        DO i = MPI%istart, MPI%iend
+            DO j = MPI%jstart+1, MPI%jend
+                av = ABS( v(i,j) )
+                ! Explicit upwind
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+            ENDDO
+        ENDDO
+#else
         ! First column and last column initialized to zeros
         Fv( : , 1      ) = v(:,1)
         Fv( : , JMAX+1 ) = v(:,JMAX+1)
@@ -672,6 +767,7 @@ PROGRAM FS2D
                         + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
             ENDDO
         ENDDO
+#endif
         !==============================================================================================!
         ! 3.4) Solve the free surface equation
         !==============================================================================================!
@@ -684,20 +780,30 @@ PROGRAM FS2D
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
         ENDDO
-        CALL CG(IMAX, JMAX, eta, rhs , MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)      
-        ! Collect all the data from each MPI subdomain
-        ! Collect from eta into eta1
-        DO i = MPI%istart, MPI%iend
-            CALL MPI_ALLGATHER(eta(i, MPI%jstart:MPI%jend), MPI%nElem, MPI%AUTO_REAL, eta1(i,:), MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
-        ENDDO
-        ! Finally, update eta
-        eta = eta1
+        CALL CG(IMAX, JMAX, eta, rhs , MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
         ct = g*dt/dx    ! Temporary coefficient for x
         cs = g*dt/dy    ! Temporary coefficient for y
         !==============================================================================================!
+#ifdef PARALLEL
+        u( MPI%istart, MPI%jstart:MPI%jend ) = Fu( MPI%istart, MPI%jstart:MPI%jend ) 
+        u( MPI%iend+1, MPI%jstart:MPI%jend ) = Fu( MPI%iend+1, MPI%jstart:MPI%jend )
+        DO i = MPI%istart+1, MPI%iend
+            DO j = MPI%jstart, MPI%jend
+                u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j) )
+            ENDDO
+        ENDDO
+        !==============================================================================================!
+        v( MPI%istart:MPI%iend, MPI%jstart ) = Fv( MPI%istart:MPI%iend, MPI%jstart )
+        v( MPI%istart:MPI%iend, MPI%jend+1 ) = Fv( MPI%istart:MPI%iend, MPI%jend+1 )
+        DO i = MPI%istart, MPI%iend
+            DO j = MPI%jstart+1, MPI%jend
+                v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
+            ENDDO
+        ENDDO
+#else        
         u(1,:)      = Fu(1,:) 
         u(IMAX+1,:) = Fu(IMAX+1,:)
         DO i = 2, IMAX
@@ -713,9 +819,32 @@ PROGRAM FS2D
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO
+#endif
         !==============================================================================================!
         ! 3.6) Update total water depth
         !==============================================================================================!
+#ifdef PARALLEL
+        DO j = MPI%jstart, MPI%jend
+            ! Initialize first and last columns for Hu
+            Hu( MPI%istart, j ) = MAX( 0.0, bu( MPI%istart, j ) + eta( MPI%istart, j ) )
+            Hu( MPI%iend+1, j ) = MAX( 0.0, bu( MPI%iend+1, j ) + eta( MPI%iend,   j ) )
+        ENDDO    
+        DO i = MPI%istart, MPI%iend
+            ! Initialize first and last rows for Hv
+            Hv( i, MPI%jstart ) = MAX( 0.0, bv( i, MPI%jstart ) + eta( i, MPI%jstart ) )
+            Hv( i, MPI%jend+1 ) = MAX( 0.0, bv( i, MPI%jend+1 ) + eta( i, MPI%jend   ) )
+        ENDDO
+        DO i = MPI%istart+1, MPI%iend
+            DO j = MPI%jstart, MPI%jend
+                Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        DO i = MPI%istart, MPI%iend
+            DO j = MPI%jstart+1, MPI%jend
+                Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+#else
         DO j = 1, JMAX
             ! Initialize first and last columns for Hu
             Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
@@ -736,12 +865,31 @@ PROGRAM FS2D
                 Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
             ENDDO
         ENDDO
+#endif        
         !==========================================================================================!
         time = time + dt  ! Update time
         !==========================================================================================!
         ! 3.7) Eventually plot the results        
 #ifdef PARALLEL
         IF(ABS(time-tio).LT.1e-12) THEN
+            ! Collect all the data from each MPI subdomain
+            ! Collect from eta into eta1
+            DO i = MPI%istart, MPI%iend
+                CALL MPI_ALLGATHER( eta( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, eta1(i, MPI%jstart:MPI%jend), &
+                                    MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+                CALL MPI_ALLGATHER( u( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(i, MPI%jstart:MPI%jend), &
+                                    MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+                ! v has one more column
+                CALL MPI_ALLGATHER( v( i, MPI%jstart:MPI%jend+1 ), MPI%nElem+1, MPI%AUTO_REAL, v1(i,MPI%jstart:MPI%jend+1), &
+                                    MPI%nElem+1, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+            ENDDO
+            ! u has one more line
+            CALL MPI_ALLGATHER( u( MPI%iend+1, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(MPI%iend+1, MPI%jstart:MPI%jend), &
+                                    MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+            ! Finally, update eta, u and v
+            eta = eta1
+            u   = u1
+            v   = v1
             IF (MPI%myrank.EQ.0) THEN
                 ! Only root thread calls dataoutput
                 WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
