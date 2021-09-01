@@ -44,8 +44,7 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     WRITE(DataUnit,*) IMAX
     WRITE(DataUnit,*) JMAX
     ! Coordinates
-    ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)
-        
+    ! Note: these are 2 vectors, they will be the coordinates of a matrix (eta)        
     DO i = istart, iend
         WRITE(DataUnit,*) xb(i)
     ENDDO  
@@ -56,7 +55,7 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     ! For each x eta coordinate, i print JMAX values for y eta coordinate
     DO i = istart, iend
         DO j = jstart, jend   
-            WRITE(DataUnit,*) eta1(i,j)
+            WRITE(DataUnit,*) eta(i,j)
         ENDDO
     ENDDO    
     ! Velocity (interpolation at barycenters)

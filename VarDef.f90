@@ -55,7 +55,7 @@ MODULE VarDef_mod
     REAL, ALLOCATABLE   :: bu (:, :)    ! Bottom elevation for u mesh
     REAL, ALLOCATABLE   :: bv (:, :)    ! Bottom elevation for v mesh
     REAL                :: nu           ! kinematic viscosity coefficient
-    REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system 
+    REAL, ALLOCATABLE   :: rhs(:, :)    ! rhs of the pressure system
     !==================================================================================================!
     ! Concerning time
     !==================================================================================================!
@@ -110,8 +110,6 @@ SUBROUTINE Deallocate_Var
     DEALLOCATE( v,  Fv )
     DEALLOCATE( Hu, bu )
     DEALLOCATE( Hv, bv )
-    DEALLOCATE( eta    )
-    DEALLOCATE( rhs)
 END SUBROUTINE Deallocate_Var
 !======================================================================================================!
 END MODULE VarDef_mod   ! End of module VarDef

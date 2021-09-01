@@ -363,10 +363,8 @@ PROGRAM FS2D
     !==================================================================================================!
     INTEGER            :: i, j, n   ! indices
     REAL               :: umax, au, av, s0, ct, cs , a , b
-    REAL, ALLOCATABLE  :: amat(:,:), amatj(:,:), bmat(:,:), cmat(:,:), cmatj(:,:)
 #ifdef PARALLEL 
     INTEGER             :: LCPU, RCPU, MsgLength, nMsg
-    !REAL                :: send_messageL, send_messageR, recv_messageL, recv_messageR
     REAL, ALLOCATABLE   :: send_messageL(:), send_messageR(:), recv_messageL(:), recv_messageR(:)
     INTEGER             :: send_request(2), recv_request(2) 
     INTEGER             :: send_status_list(MPI_STATUS_SIZE,2),recv_status_list(MPI_STATUS_SIZE,2)
@@ -385,8 +383,8 @@ PROGRAM FS2D
     !==================================================================================================!
     ! SETTINGS OF THE COMPUTATION (PART 1)
     !==================================================================================================!
-    IMAX   = 500    ! Max index for x coordinates
-    JMAX   = 500    ! Max index for y coordinates
+    IMAX   = 200    ! Max index for x coordinates
+    JMAX   = 200   ! Max index for y coordinates
 #ifdef PARALLEL
     CALL MPI_INIT(MPI%iErr)
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
@@ -418,8 +416,7 @@ PROGRAM FS2D
          STOP 
     ENDIF
     ! Distribute elements among the processors
-    ! Matrices are stored in sequential order
-    ! TRY
+    ! Every process will have a sub-matrix of dimension IMAX * (JMAX/nCPU)
     MPI%nElem   = IMAX/MPI%nCPU
     MPI%jstart  = 1 + MPI%myrank*MPI%nElem
     MPI%jend    = MPI%jstart + MPI%nElem - 1
@@ -442,8 +439,7 @@ PROGRAM FS2D
     WRITE(*,'(a,i10)') '         Total number of CPUs used : ', MPI%nCPU       
     WRITE(*,'(a)') ' | ================================================================== | '
     WRITE(*,'(a)') ' '
-    ENDIF
-      
+    ENDIF      
     !==================================================================================================!
     ! SETTINGS OF THE COMPUTATION (PART 2)
     !==================================================================================================!
@@ -467,24 +463,16 @@ PROGRAM FS2D
     !==================================================================================================!
     CALL Allocate_Var  ! Allocate all variables
     !==================================================================================================!
-    ! Matrixes for assembling the tridiagonal linear system
-    !==================================================================================================!
-    ALLOCATE( amat  ( IMAX, JMAX ) )    ! Matrix a for i system
-    ALLOCATE( amatj ( IMAX, JMAX ) )    ! Matrix a for j system
-    ALLOCATE( bmat  ( IMAX, JMAX ) )    ! Matrix b for both systems
-    ALLOCATE( cmat  ( IMAX, JMAX ) )    ! Matrix c for i system
-    ALLOCATE( cmatj ( IMAX, JMAX ) )    ! Matrix c for j system
-    ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs 
+    ! Maybe rhs must be of the sime dimensions of eta? (for parallelization)
+    ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs for assembling the tridiagonal linear system
 #ifdef PARALLEL
     ALLOCATE( eta1(IMAX,JMAX) )         ! Here I will import eta from the processors
     ALLOCATE( eta(IMAX, MPI%jstart-1:MPI%jend+1) )  ! Ditributed eta
-    ALLOCATE( send_messageL(JMAX), send_messageR(JMAX) )
-    ALLOCATE( recv_messageL(JMAX), recv_messageR(JMAX) )
     eta = 0.
     eta1 = 0.
 #else
-    ALLOCATE( eta( IMAX, JMAX )                           )
-    eta = 0.
+    ALLOCATE( eta( IMAX, JMAX )                           ) 
+    eta = 0.   
 #endif   
     !==================================================================================================!
     ! 1) Computational domain 
@@ -539,14 +527,13 @@ PROGRAM FS2D
             eta(i,j) = 1.0 + EXP( (-1.0 / (2 * (s**2) ) ) * ( xb(i)**2 + yb(j)**2 ) )
         ENDDO
     ENDDO
-    
-    !
     ! Collect all the data from each MPI subdomain
     ! Collect from eta into eta1
     DO i = MPI%istart, MPI%iend
-        !row = eta(i, MPI%jstart:MPI%jend)
         CALL MPI_ALLGATHER(eta(i, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta1(i,:),MPI%nElem,MPI%AUTO_REAL,MPI_COMM_WORLD,MPI%iErr)
     ENDDO
+    ! Finally, update eta
+    eta = eta1
 #else
      DO i = 1, IMAX
         DO j = 1, JMAX
@@ -582,46 +569,38 @@ PROGRAM FS2D
     !==================================================================================================!
     DO j = 1, JMAX
         ! Initialize first and last columns for Hu
-        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta1( 1,    j ) )
-        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta1( IMAX, j ) )
+        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
     ENDDO    
     DO i = 1, IMAX
         ! Initialize first and last rows for Hv
-        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta1( i, 1    ) )
-        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta1( i, JMAX ) )
+        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
     ENDDO
     DO i = 2, IMAX
         DO j = 1, JMAX
-            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta1( i - 1, j ), bu( i, j )+ eta1( i, j ) /) )
+            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
     DO i = 1, IMAX
         DO j = 2, JMAX
-            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta1( i, j - 1 ), bv( i, j )+ eta1( i, j ) /) )
+            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
     ENDDO
     !==================================================================================================!
     ! Plot initial condition
-    !==================================================================================================!    
+    !==================================================================================================!
 #ifdef PARALLEL
-    IF(MPI%myrank.EQ.0) THEN
+    IF(MPI%myrank.EQ.0) THEN    
+        WRITE(*,'(a)') ' | '
+        WRITE(*,'(a)') ' | Plotting initial condition ' 
         CALL DataOutput(0, 1, IMAX, 1, JMAX, MPI%myrank)
     ENDIF
-#else
+#else    
+    WRITE(*,'(a)') ' | '
+    WRITE(*,'(a)') ' | Plotting initial condition ' 
     CALL DataOutput(0, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, 1)
 #endif
-    
-    ! DEBUG
-#ifdef PARALLEL
-    IF(MPI%myrank.EQ.0) THEN
-        PRINT *, 'SUCCESS'
-    ENDIF
-    PAUSE
-#else
-    PRINT *, 'SUCCESS'
-    PAUSE
-#endif 
-
     tio = tio + dtio    
     !==================================================================================================!
     ! 3) Computation: main loop in time
@@ -629,7 +608,8 @@ PROGRAM FS2D
     IF(MPI%myrank.EQ.0) THEN
         WRITE(*,'(a)') ' | '
         WRITE(*,'(a)') ' | START of the COMPUTATION ' 
-    ENDIF  
+    ENDIF
+    !CALL MPI_BARRIER( MPI_COMM_WORLD, MPI%iErr )
 #ifdef PARALLEL
     WCT1 = MPI_WTime() 
 #else
@@ -637,18 +617,9 @@ PROGRAM FS2D
 #endif    
     !
     DO n = 1, NMAX
-        !
-        IF(MPI%myrank.EQ.0) THEN
-            IF(MOD(n,100).EQ.0) THEN
-                WRITE(*,'(a,i10)') '  Current timestep = ', n 
-            ENDIF
-        ENDIF
-    
-    !
-    !==================================================================================================!
-    !==============================================================================================!
-    ! 3.1) Compute the time step
-    !==============================================================================================!
+        !==============================================================================================!
+        ! 3.1) Compute the time step
+        !==============================================================================================!
         IF( time.GE.tend ) THEN
             EXIT    
         ENDIF
@@ -666,172 +637,61 @@ PROGRAM FS2D
         !==============================================================================================!
         ! 3.2) Compute the operator Fu
         !==============================================================================================!        
+        ! Fu = u    ! Case without considering Fu
+        ! BC: no-slip wall
+        ! First row and last row initialized to zeros
         Fu( 1      , : ) = u(1,:)
         Fu( IMAX+1 , : ) = u(IMAX+1,:)
+        DO i = 2, IMAX
+            DO j = 1, JMAX
+                au = ABS( u(i,j) )
+                ! Explicit upwind
+                ! In our case, nu = 0
+                !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
+                !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
+                !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
+                Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
+                        + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
+                        + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
+            ENDDO
+        ENDDO
         !==============================================================================================!
         ! 3.3) Compute the operator Fv
-        !==============================================================================================! 
+        !==============================================================================================!
+        ! Fv = v    ! Case without considering Fv
+        ! BC: no-slip wall
+        ! First column and last column initialized to zeros
         Fv( : , 1      ) = v(:,1)
         Fv( : , JMAX+1 ) = v(:,JMAX+1)
-#ifdef PARALLEL
-        DO i = MPI%istart, MPI%iend
-          DO j = MPI%jstart+1, MPI%jend  
-           Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
-                       + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                       + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
-           ENDDO
-        ENDDO  
-        DO i = MPI%istart+1, MPI%iend  
-          DO j = MPI%jstart, MPI%jend
-            av = ABS( v(i,j) )
-            ! Explicit upwind
-            Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                    + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                    + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
-        ENDDO
-        ENDDO
-      
-       
-    !
-    ! The only real MPI part is here: exchange of the boundary values between CPUs 
-    !
-      MsgLength = 1 
-      RCPU = MPI%myrank + 1 
-      IF(RCPU.GT.MPI%nCPU-1) THEN
-          RCPU = 0
-      ENDIF
-      LCPU = MPI%myrank - 1 
-      IF(LCPU.LT.0) THEN 
-          LCPU = MPI%nCPU - 1 
-      ENDIF 
-     
-      ! send your leftmost state to your left neighbor CPU 
-      send_messageL = eta(MPI%istart, MPI%jstart) 
-      CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
-      ! send your rightmost state to your right neighbor CPU => post a send request  
-      send_messageR = eta(MPI%iend, MPI%jend)
-      CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
-      ! obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
-      CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
-      ! obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
-      CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)               
-      !
-        ! We do some useful work here, e.g. update all internal elements of the domain, since we do non-blocking communication ! 
-      !
-      ! The main finite difference scheme is IDENTICAL to the serial code ! 
-      ! This is the simplicify and the beauty of MPI :-) 
-      ! 
-      !==============================================================================================!
-        ! 3.4) Solve the free surface equation
-        !==============================================================================================!
-        ! CONJUGATE GRADIENT METHOD
-        !==============================================================================================!  
-        DO i = MPI%istart, MPI%iend 
-          DO j = MPI%jstart, MPI%jend
-                rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
-                                    - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
-            ENDDO
-        ENDDO
-
-        CALL CG(IMAX,eta,rhs,MPI%istart, MPI%iend, MPI%jstart, MPI%jend)   !,MPI%istart, MPI%iend, MPI%jstart, MPI%jend
-        PRINT *, 'Ciao'
-        
-        !  
-        ! Wait until all communication has finished
-        ! 
-        nMsg = 2 
-        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
-        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
-        !eta(MPI%istart-1, MPI%jstart-1)   = recv_messageL 
-       ! eta(MPI%iend+1, MPI%jend+1)       = recv_messageR
-        !==============================================================================================!
-        ! 3.5) Update the velocity (momentum equation)
-        !==============================================================================================!
-        ct = g*dt/dx    ! Temporary coefficient for x
-        cs = g*dt/dy    ! Temporary coefficient for y
-        !==============================================================================================!
-        u(1,:)      = Fu(1,:) 
-        u(IMAX+1,:) = Fu(IMAX+1,:)
-        v(:,1)      = Fv(:,1)
-        v(:,JMAX+1) = Fv(:,JMAX+1)
-        
-        DO i = MPI%istart +1, MPI%iend
-            DO j =MPI%jstart, MPI%jend
-                u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j) )
-            ENDDO
-        ENDDO
-        !==============================================================================================!
-    
-        DO i = MPI%istart, MPI%iend
-            DO j =MPI%jstart+1, MPI%jend
-                v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
-            ENDDO
-        ENDDO
-        
-        !==============================================================================================!
-        ! 3.6) Update total water depth
-        !==============================================================================================!
-    
-        DO j = MPI%jstart, MPI%jend, (MPI%jend - MPI%jstart)
-        ! Initialize first and last columns for Hu
-            Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-            Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-        ENDDO
-        DO i= MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
-            ! Initialize first and last rows for Hv
-            Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-            Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
-        ENDDO
-        DO i = MPI%istart +1, MPI%iend , (MPI%iend - MPI%istart)
-            DO j = MPI%jstart, MPI%jend , (MPI%jend - MPI%jstart)
-                Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
-            ENDDO
-        ENDDO
-        DO i = MPI%istart, MPI%iend , (MPI%iend - MPI%istart)
-            DO j = MPI%jstart+1, MPI%jend , (MPI%jend - MPI%jstart)
-                Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
-            ENDDO
-        ENDDO
-#else      
-    
-    DO i = 1, IMAX
-        DO j = 2, JMAX
-            av = ABS( v(i,j) )
-            ! Explicit upwind
-            Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                    + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                    + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
-        ENDDO
-    ENDDO
-   DO i = 2, IMAX
-        DO j = 1, JMAX
-            au = ABS( u(i,j) )
-            ! Explicit upwind
-            ! In our case, nu = 0
-            !Fu(i,j) = ( 1. - dt * ( au/dx + 2.*nu/dx2 ) ) * u(i,j)   &     ! q^N
-            !        + dt * ( nu/dx2 + (au-u(i,j))/(2.*dx) ) * u(i+1,j) &   ! a^+(...)
-            !        + dt * ( nu/dx2 + (au+u(i,j))/(2.*dx) ) * u(i-1,j)     ! a^-(...)
-            Fu(i,j) = ( 1. - dt * ( au/dx ) ) * u(i,j)   &
-                    + dt * ( (au-u(i,j))/(2.*dx) ) * u(i+1,j) &
-                    + dt * ( (au+u(i,j))/(2.*dx) ) * u(i-1,j)
-        ENDDO
-    ENDDO
-        !==============================================================================================!
-        ! 3.4) Solve the free surface equation
-        !==============================================================================================!
-        ! CONJUGATE GRADIENT METHOD
-        !==============================================================================================!
         DO i = 1, IMAX
-            DO j = 1, JMAX
+            DO j = 2, JMAX
+                av = ABS( v(i,j) )
+                ! Explicit upwind
+                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+            ENDDO
+        ENDDO
+        !==============================================================================================!
+        ! 3.4) Solve the free surface equation
+        !==============================================================================================!
+        ! CONJUGATE GRADIENT METHOD
+        !==============================================================================================!
+        ! nb: even rhs is distributed among processors as eta (same dimensions), while Hu and Hv are not
+        DO i = MPI%istart, MPI%iend 
+            DO j = MPI%jstart, MPI%jend
                 rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
         ENDDO
-        ! Here, we suppose that IMAX and JMAX are the same, at least for the moment
-              ! 
-
-        CALL CG(IMAX,eta,rhs, 1, IMAX, 1, JMAX)
-        
+        CALL CG(IMAX, JMAX, eta, rhs , MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)      
+        ! Collect all the data from each MPI subdomain
+        ! Collect from eta into eta1
+        DO i = MPI%istart, MPI%iend
+            CALL MPI_ALLGATHER(eta(i, MPI%jstart:MPI%jend), MPI%nElem, MPI%AUTO_REAL, eta1(i,:), MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
+        ENDDO
+        ! Finally, update eta
+        eta = eta1
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
@@ -840,109 +700,102 @@ PROGRAM FS2D
         !==============================================================================================!
         u(1,:)      = Fu(1,:) 
         u(IMAX+1,:) = Fu(IMAX+1,:)
-        v(:,1)      = Fv(:,1)
-        v(:,JMAX+1) = Fv(:,JMAX+1)
-
         DO i = 2, IMAX
             DO j = 1, JMAX
                 u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j) )
             ENDDO
         ENDDO
         !==============================================================================================!
-    
+        v(:,1)      = Fv(:,1)
+        v(:,JMAX+1) = Fv(:,JMAX+1)
         DO i = 1, IMAX
             DO j = 2, JMAX
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
-        ENDDO      
-    
-    DO j = 1, JMAX
-        ! Initialize first and last columns for Hu
-        Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
-        Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-    ENDDO
-    DO i = 1, IMAX
-        ! Initialize first and last rows for Hv
-        Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
-        Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
-    ENDDO
-    DO i = 2, IMAX
+        ENDDO
+        !==============================================================================================!
+        ! 3.6) Update total water depth
+        !==============================================================================================!
         DO j = 1, JMAX
-            Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            ! Initialize first and last columns for Hu
+            Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
+            Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
         ENDDO
-    ENDDO
-    DO i = 1, IMAX
-        DO j = 2, JMAX
-            Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+        DO i = 1, IMAX
+            ! Initialize first and last rows for Hv
+            Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
+            Hv( i, JMAX+1 ) = MAX( 0.0, bv( i, JMAX+1 ) + eta( i, JMAX ) )
         ENDDO
-    ENDDO
-    
-#endif  
-    !==========================================================================================!
-    time = time + dt  ! Update time
-    !==========================================================================================!
-    ! 3.7) Eventually plot the results
-    !CALL DataOutput(n)  ! DEBUG
-    !STOP                ! DEBUG
-    IF(ABS(time-tio).LT.1e-12) THEN
-      IF(MPI%myrank.EQ.0) THEN
-          WRITE(*,'(a,f15.7)') '   => plotting data output at time ', time
-           CALL DataOutput(n, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
-        ENDIF 
-    
+        DO i = 2, IMAX
+            DO j = 1, JMAX
+                Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        DO i = 1, IMAX
+            DO j = 2, JMAX
+                Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
+            ENDDO
+        ENDDO
+        !==========================================================================================!
+        time = time + dt  ! Update time
+        !==========================================================================================!
+        ! 3.7) Eventually plot the results        
 #ifdef PARALLEL
-    CALL MPI_GATHER(eta(MPI%istart:MPI%iend, MPI%jstart:MPI%jend),MPI%nElem,MPI%AUTO_REAL,eta,MPI%nElem,MPI%AUTO_REAL,0,MPI_COMM_WORLD,MPI%iErr)
-    IF(MPI%myrank.EQ.0) THEN
-    CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
-    ENDIF
-     
-#else
- CALL DataOutput(n,MPI%istart,MPI%iend,MPI%jstart,MPI%jend,MPI%myrank)
+        IF(ABS(time-tio).LT.1e-12) THEN
+            IF (MPI%myrank.EQ.0) THEN
+                ! Only root thread calls dataoutput
+                WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
+                CALL DataOutput(n, 1, IMAX, 1, JMAX, MPI%myrank)
+            ENDIF
+            tio = tio + dtio
+        ENDIF    
+#else    
+        IF(ABS(time-tio).LT.1e-12) THEN
+            WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
+            CALL DataOutput(n, 1, IMAX, 1, JMAX, MPI%myrank)
+            tio = tio + dtio        
+        ENDIF    
 #endif
- tio = tio + dtio
-  ENDIF 
     !==============================================================================================!
-ENDDO ! n cycle
+    ENDDO ! n cycle
     !==============================================================================================!
+#ifdef PARALLEL
+    IF(MPI%myrank.EQ.0) THEN
+        WRITE(*,'(a)') ' | END of the COMPUTATION '
+    ENDIF
+    WCT2 = MPI_WTime() 
+    CALL MPI_FINALIZE(MPI%iErr)
+#else
     WRITE(*,'(a)') ' | END of the COMPUTATION '
 
-    !
-#ifdef PARALLEL
-    WCT2 = MPI_WTime() 
-    CALL MPI_FINALIZE(MPI%iErr) 
-#else
     CALL CPU_TIME(WCT2) 
 #endif  
     !==============================================================================================!
     ! Empty memory
     !==============================================================================================!
     CALL Deallocate_Var
-    !==============================================================================================!
-    DEALLOCATE( amat,bmat,cmat, amatj,cmatj )
+    DEALLOCATE( eta, eta1, rhs )
     !==============================================================================================!
     IF(MPI%myrank.EQ.0) THEN
-    WRITE(*,'(a)') '| ====================================================== |  '
-    WRITE(*,'(a,f15.7)'), '         Total wallclock time needed : ', WCT2-WCT1
-    WRITE(*,'(a)') ' | ====================================================== | ' 
-    WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
-    WRITE(*,'(a)') ' | ====================================================== | '
+        WRITE(*,'(a)') '| ====================================================== |  '
+        WRITE(*,'(a,f15.7)'), '         Total wallclock time needed : ', WCT2-WCT1
+        WRITE(*,'(a)') ' | ====================================================== | ' 
+        WRITE(*,'(a)') ' |         Finalization was successful. Bye :-)           | '
+        WRITE(*,'(a)') ' | ====================================================== | '
     ENDIF  
     !==============================================================================================!    
     PAUSE
 !======================================================================================================!
-    END PROGRAM FS2D
-    
-    
-    
+END PROGRAM FS2D
     
 !======================================================================================================!
-SUBROUTINE matop2D(Ap,p,N,istart, iend, jstart, jend)
+SUBROUTINE matop2D(Ap, p, N, M, istart, iend, jstart, jend)
     !==================================================================================================!
     USE VarDef_mod
     IMPLICIT NONE
     !==================================================================================================!
-    INTEGER             :: N 
-    REAL                :: Ap(N,N), p(N,N)
+    INTEGER             :: N, M 
+    REAL                :: Ap(N,M), p(N,M)
     !==================================================================================================!
     INTEGER             :: i, j
     INTEGER, INTENT(IN) :: istart, iend, jstart, jend
@@ -956,15 +809,14 @@ SUBROUTINE matop2D(Ap,p,N,istart, iend, jstart, jend)
 	Ap = p
     !==================================================================================================!	
 	! 2) Fluxes in x-direction
-    !==================================================================================================!	
-#ifdef PARALLEL
-    	DO j = jstart, jend
+    !==================================================================================================!
+    DO j = jstart, jend
 		DO i = istart, iend
-			IF(i.EQ.1) THEN
+			IF(i.EQ.istart) THEN
 				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - 0.0 )
 			ELSEIF(i.EQ.iend) THEN  
 				Ap(i,j) = Ap(i,j) - cx * ( 0.0 - Hu(i,j)*(p(i,j)-p(i-1,j)) )
-			ELSE  
+			ELSE
 				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - Hu(i,j)*(p(i,j)-p(i-1,j)) )
 			ENDIF 
 		ENDDO
@@ -974,7 +826,7 @@ SUBROUTINE matop2D(Ap,p,N,istart, iend, jstart, jend)
     !==================================================================================================!	
 	DO j = jstart, jend
 		DO i = istart, iend
-			IF(j.EQ.1) THEN
+			IF(j.EQ.jstart) THEN
 				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - 0.0 )
 			ELSEIF(j.EQ.jend) THEN  
 				Ap(i,j) = Ap(i,j) - cy * ( 0.0 - Hv(i,j)*(p(i,j)-p(i,j-1)) )
@@ -982,34 +834,6 @@ SUBROUTINE matop2D(Ap,p,N,istart, iend, jstart, jend)
 				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - Hv(i,j)*(p(i,j)-p(i,j-1)) )
 			ENDIF 
 		ENDDO
-    ENDDO   
-#else    
-	DO j = 1, N
-		DO i = 1, N
-			IF(i.EQ.1) THEN
-				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - 0.0 )
-			ELSEIF(i.EQ.N) THEN  
-				Ap(i,j) = Ap(i,j) - cx * ( 0.0 - Hu(i,j)*(p(i,j)-p(i-1,j)) )
-			ELSE  
-				Ap(i,j) = Ap(i,j) - cx * ( Hu(i+1,j)*(p(i+1,j)-p(i,j)) - Hu(i,j)*(p(i,j)-p(i-1,j)) )
-			ENDIF 
-		ENDDO
     ENDDO
-    !==================================================================================================!	
-    ! 3) Fluxes in y-direction
-    !==================================================================================================!	
-	DO j = 1, N
-		DO i = 1, N
-			IF(j.EQ.1) THEN
-				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - 0.0 )
-			ELSEIF(j.EQ.N) THEN  
-				Ap(i,j) = Ap(i,j) - cy * ( 0.0 - Hv(i,j)*(p(i,j)-p(i,j-1)) )
-			ELSE  
-				Ap(i,j) = Ap(i,j) - cy * ( Hv(i,j+1)*(p(i,j+1)-p(i,j)) - Hv(i,j)*(p(i,j)-p(i,j-1)) )
-			ENDIF 
-		ENDDO
-    ENDDO    
-#endif    
 !======================================================================================================!
-    END SUBROUTINE matop2D
-  
+END SUBROUTINE matop2D
