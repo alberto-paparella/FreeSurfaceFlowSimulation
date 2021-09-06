@@ -1,0 +1,132 @@
+\documentclass{beamer}
+\usepackage[italian]{babel} 
+ \usetheme{CambridgeUS} 
+\usepackage[T1]{fontenc}
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
+\title{Algoritmi per il calcolo parallelo}
+\author{...........Author..............}
+\date{2021}
+ 
+\subtitle{Equazione dei flussi a superficie libera su griglie strutturate}
+
+\begin{document}
+	\frame{\titlepage}
+	
+	\begin{frame}
+		\frametitle{Introduzione}
+		Lo scopo di questo progetto è la simulazione di una situazione fluidodinamica: correnti a superficie libera su griglie strutturate.
+		\medskip
+	
+		Così facendo siamo in grado di osservare non solo la profondità dell'acqua in ogni punto ma anche la conformazione fisica di questa all'interno dell'area di studio. 
+		
+		\medskip
+		Per poter così ottimizzare le tempistiche di calcolo, la simulazione potrà essere messa in esecuzione con un qualsiasi numero di processori.
+		
+		\smallskip
+		
+		Infatti, lo dimostreremo nel momento in cui andremo a guardare i vari tempi di speed-up effettuati con un numero di processori differenti.
+	
+	\end{frame}
+
+	\begin{frame}
+		\frametitle{Condizioni}
+
+		Il nostro dominio di calcolo è: $\Omega$ = $ [ -0.5; 0.5 ] x [ -0.5; 0.5 ]	$, con la condizione iniziale della nostra pressione $\eta$ =  1 + $e^{ -\frac{1}{2* s^{2}} * (x^{2} + y^{2})} $ e \\ \emph{s} = 0.1. che è il tempo, con intervallo [0, 0.1]\\
+		
+		
+		Il dominio di calcolo è discretizzato per mezzo di una griglia sfalsata composta da un numero totale, N e M, di celle equamente risparmiate con dimensione della maglia ($\Delta$x ).
+		
+		
+		Per questo progetto, abbiamo tralasciato i termini convettivi, il che significa : 
+			\begin{center}
+			
+			$ \emph{Fu}_{i + \frac{1}{2} j}^{n} = u_{i+\frac{1}{2},j}^{n}	$ e $\emph{Fv}_{i,j + \frac{1}{2}} ^{n}	= u_{i, j +\frac{1}{2},j}^{n}	$
+			
+			\end{center}	
+	\end{frame}
+
+
+	\begin{frame}
+		\frametitle{Condizioni}
+			\begin{itemize}
+				\item Le velocità discrete u($i+\frac{1}{2} ; j $) e v($ i ; j+\frac{1}{2}$) sono definite alle interfacce delle celle, mentre la pressione discreta ($\eta$) è data ai baricentri delle celle.\\
+				\item $\Delta$t rappresenta il passo temporale.
+				\smallskip
+				
+				\item Ricorderemo brevemente le equazioni di governo per i flussi a superficie libera e introdurremo un metodo numerico adatto per risolverle. Lo schema è basato su una discretizzazione temporale semi-implicit e un'approssimazione spaziale a differenza finita.
+				\item Lasciamo che lo spazio fisico sia descritto dal vettore posizione x=(x,y,z), mentre gli componenti di velocità in direzione x, y e z siano indicati con u(x, y, z, t), v(x, y, z, t), rispettivamente con t inizia il tempo.
+			\end{itemize}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Condizioni}
+			La profondità totale dell'acqua all'interfaccia è calcolata come: 
+	
+		\begin{center}
+			$ H_{i+\frac{1}{2};j}^{n} $ = $  \max { 0, h_{i + \frac{1}{2}; j}^{n} + \eta_{i;j}^{n} ; h_{i+\frac{1}{2}; j}^{n} + \eta_{i+1;j)^{n} } } $
+			
+			$ H_{i; j+\frac{1}{2}}^{n} $ = $ \max { 0 , h_{i; j+\frac{1}{2}}^{n} + \eta_{i;j}^{n}; h_{i; j+\frac{1}{2}}^{n}+ \eta_{i; j+1)} } $
+		\end{center}
+	
+			
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Costruzione dell'equazione dei flussi a superficie libera su griglie strutturate }
+			
+			Abbiamo un sistema di tre equazioni: due per le velocità del fluido e uno per la pressione di esso, cioè la sua altezza. \\
+			Se ipotizziamo di avere un fondo piatto, la nostra \emph{H} è la pressione del nostro fluido.\\
+			Sostanzialmente, la pressione sarebbe l'altezza che si ha del fluido in un determinato punto.\\
+
+	\end{frame}
+
+	\begin{frame}
+		Il sistema è il seguente:\\
+		\begin{center}
+	
+			$ u_{i + \frac{1}{2} ; j}^{n+1} = Fu_{i + \frac{1}{2}; j} ^{n}  - g*\frac{\Delta t}{\Delta x} *( \eta_{i+1; j} ^{n+1} -\eta_{i; j} ^{n+1}) $
+			
+			$ v_{i ; j + \frac{1}{2}}^{n+1} = Fv_{i;j  + \frac{1}{2}} ^{n}  - g*\frac{\Delta t}{\Delta y} *( \eta_{i; j+1} ^{n+1} -\eta_{i; j} ^{n+1}) $
+				
+				$ \eta_{i ; j}^{n+1} = \eta_{i ;j} ^{n}  - g*\frac{\Delta t}{\Delta x} *( H_{i+ \frac{1}{2} ; j}^n u_{i+\frac{1}{2};j}^{n+1} - H_{i-\frac{1}{2};j}^{n} u_{i-\frac{1}{2};j}^{n}) $ \\
+				$\frac{\Delta t}{\Delta y} *( H_{i; j+ \frac{1}{2}}^{n} v_{i; j+\frac{1}{2}}^{n+1} - H_{i;j-\frac{1}{2}}^{n} v_{i;j-\frac{1}{2}}^{n}) $ 
+		\end{center}
+
+	\end{frame}
+
+\begin{frame}
+	Dal sistema sopra, possiamo ricavare l'equazione che stiamo cercando, tramite il metodo implicito. 
+	L'equazione che ricaviamo, tramite le varie sostituzioni è:
+	
+	$ \eta_{i;j}^{n} - \frac{\Delta t}{\Delta x}Hx_{i+\frac{1}{2};j}^{n} Fu_{i+\frac{1}{2};j} + \frac{\Delta t^{2}}{\Delta x^{2}}Hx_{i-\frac{1}{2};j}^{n} Fu_{i-\frac{1}{2};j} -\frac{\Delta t^{2}}{\Delta y^{2}}Hy_{i;j+\frac{1}{2}}^{n} Fv_{i;j+\frac{1}{2}}  + \frac{\Delta t^{2}}{\Delta y^{2}}Hy_{i;j-\frac{1}{2}}^{n} Fv_{i;j-\frac{1}{2}} = -g\frac{\Delta t^{2}}{\Delta x^{2}}Hy_{i;j-\frac{1}{2}}^{n} \eta_{i;j-1} -g\frac{\Delta t^{2}}{\Delta x^{2}}Hx_{i;j-\frac{1}{2}}^{n}  \eta_{i-1;j} + (1 + g(\frac{\Delta t^{2}}{\Delta x^{2}}Hx_{i+\frac{1}{2}; j}^{n} +\frac{\Delta t^{2}}{\Delta x^{2}}Hx_{i-\frac{1}{2}; j}^{n} + \frac{\Delta t^{2}}{\Delta y^{2}}Hy_{i;j+\frac{1}{2}}^{n} + \frac{\Delta t^{2}}{\Delta y^{2}}Hy_{i;j-\frac{1}{2}}^{n} ) )\eta_{i;j}^{n+1} - g\frac{\Delta t^{2}}{\Delta x^{2}}Hx_{i+;\frac{1}{2} ; j}^{n}  \eta_{i+1;j}^{n+1} - g\frac{\Delta t^{2}}{\Delta y^{2}}Hy_{i+;\frac{1}{2} ; j}^{n}  \eta_{i;j+1}^{n+1}	$
+\end{frame}
+
+	\begin{frame}
+	\frametitle{Condizioni}
+	\begin{itemize}
+		\item Le velocità discrete u($i+\frac{1}{2} ; j $) e v($ i ; j+\frac{1}{2}$) sono definite alle interfacce delle celle, mentre la pressione discreta ($\eta$) è data ai baricentri delle celle.\\
+		\item $\Delta$t rappresenta il passo temporale.
+		\smallskip
+		
+		\item Ricorderemo brevemente le equazioni di governo per i flussi a superficie libera e introdurremo un metodo numerico adatto per risolverle. Lo schema è basato su una discretizzazione temporale semi-implicit e un'approssimazione spaziale a differenza finita.
+		\item Lasciamo che lo spazio fisico sia descritto dal vettore posizione x=(x,y,z), mentre gli componenti di velocità in direzione x, y e z siano indicati con u(x, y, z, t), v(x, y, z, t), rispettivamente con t inizia il tempo.
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Idea generale}
+ 	Definiamo delle matrici, es. 120x120 definita in 3 parti, dove le \textcolor{blue}{\textbf{I}} le lascio come sono, mentre la diviso solo sulla base di \textcolor{blue}{\textbf{J}},
+ 	quindi c'è una divisione orizzontale.\\
+ 	Le matrici vengono definite inoltre da \textcolor{blue}{\emph{istart -1}} a \textcolor{blue}{\emph{jend +1}}. Questo lo si fa  perché prima di fare determinati conti, quando so quale valore utilizzo in precedenza e quello successivo,nel caso la matrice l'ho suddivisa in più processori, quello che faccio è riservarmi una colonna in più da ogni parte (prendere per ogni processore la sua colonna più a sinistra o a destra calcolata), quindi prendere da \textcolor{blue}{\emph{istart}} a \textcolor{blue}{\emph{iend}}, passarla a quella vicino che se la salva in \textcolor{blue}{\emph{istart - 1}} e \textcolor{blue}{\emph{iend + 1}}
+ 	Facendo così ottengo i miei valori, in aggiunta ho l'ultima colonna che diventa la mia prima riga e viceversa; li prendo e li utilizzo per effettuare il conto che sto facendo.\\
+ 	Facendo così possiamo ottenere le informazioni da parte degli altri processori. 
+	
+\end{frame}
+\begin{frame}
+	\frametitle{Idea generale}
+
+	
+	
+\end{frame}
+\end{document}
