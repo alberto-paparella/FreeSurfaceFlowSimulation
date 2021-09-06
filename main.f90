@@ -362,7 +362,7 @@ PROGRAM FS2D
 #endif    
     !==================================================================================================!
     INTEGER            :: i, j, n   ! indices
-    REAL               :: umax, au, av, s0, ct, cs , a , b
+    REAL               :: umax, vmax, au, av, s0, ct, cs , a, b
 #ifdef PARALLEL 
     INTEGER             :: LCPU, RCPU, MsgLength, nMsg
     REAL, ALLOCATABLE   :: send_messageL(:), send_messageR(:), recv_messageL(:), recv_messageR(:)
@@ -383,8 +383,8 @@ PROGRAM FS2D
     !==================================================================================================!
     ! SETTINGS OF THE COMPUTATION (PART 1)
     !==================================================================================================!
-    IMAX   = 200    ! Max index for x coordinates
-    JMAX   = 200   ! Max index for y coordinates
+    IMAX   = 120    ! Max index for x coordinates
+    JMAX   = 120    ! Max index for y coordinates
 #ifdef PARALLEL
     CALL MPI_INIT(MPI%iErr)
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, MPI%myrank, MPI%iErr)
@@ -417,7 +417,7 @@ PROGRAM FS2D
     ENDIF
     ! Distribute elements among the processors
     ! Every process will have a sub-matrix of dimension IMAX * (JMAX/nCPU)
-    MPI%nElem   = IMAX/MPI%nCPU
+    MPI%nElem   = JMAX/MPI%nCPU
     MPI%jstart  = 1 + MPI%myrank*MPI%nElem
     MPI%jend    = MPI%jstart + MPI%nElem - 1
 #else
@@ -464,39 +464,71 @@ PROGRAM FS2D
     CALL Allocate_Var  ! Allocate all variables
     !==================================================================================================!
     ! Maybe rhs must be of the sime dimensions of eta? (for parallelization)
-    ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs for assembling the tridiagonal linear system
+    !ALLOCATE( rhs   ( IMAX, JMAX ) )    ! Matrix rhs for assembling the tridiagonal linear system
 #ifdef PARALLEL
     ! Distributed matrices
+    ALLOCATE( rhs ( IMAX,   MPI%jstart-1:MPI%jend+1 ) )
     ALLOCATE( eta ( IMAX,   MPI%jstart-1:MPI%jend+1 ) )    
-    ALLOCATE( Hu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
-    ALLOCATE( Hv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
-    ALLOCATE( bu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
-    ALLOCATE( bv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )    
     ALLOCATE( u   ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
     ALLOCATE( Fu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( bu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
+    ALLOCATE( Hu  ( IMAX+1, MPI%jstart-1:MPI%jend+1 ) )
     ALLOCATE( v   ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
     ALLOCATE( Fv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
-    ! Buffers to gather from all processors
-    ALLOCATE( eta1( IMAX,   JMAX   ) )
-    ALLOCATE( u1  ( IMAX+1, JMAX   ) )
-    ALLOCATE( v1  ( IMAX,   JMAX+1 ) )
-    eta = 0.
+    ALLOCATE( bv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
+    ALLOCATE( Hv  ( IMAX,   MPI%jstart-1:MPI%jend+2 ) )
+    ! Messages for communication
+    ALLOCATE( send_messageL ( IMAX+1 ) )
+    ALLOCATE( send_messageR ( IMAX+1 ) )
+    ALLOCATE( recv_messageL ( IMAX+1 ) )
+    ALLOCATE( recv_messageR ( IMAX+1 ) )
+    ! Buffers to gather from all processors (to output the results)
+    ALLOCATE( eta1 ( IMAX,   JMAX   ) )
+    ALLOCATE( u1   ( IMAX+1, JMAX   ) )
+    ALLOCATE( v1   ( IMAX,   JMAX+1 ) )
+    ! Initialize matrices
+    rhs  = 0.
+    eta  = 0.
     eta1 = 0.
+    u    = 0.
+    u1   = 0.
+    v    = 0.
+    v1   = 0.
+    Fu   = 0.
+    Fv   = 0.
+    Hu   = 0.
+    Hv   = 0.
+    bu   = 0.
+    bv   = 0.
 #else
-    ALLOCATE( eta( IMAX, JMAX )     )    
-    ALLOCATE( Hu(  IMAX+1, JMAX   ) )
-    ALLOCATE( Hv(  IMAX,   JMAX+1 ) )
-    ALLOCATE( bu( IMAX+1, JMAX   ) )
-    ALLOCATE( bv( IMAX,   JMAX+1 ) )
-    ALLOCATE( u(   IMAX+1, JMAX   ), Fu( IMAX+1, JMAX   ) )
-    ALLOCATE( v(   IMAX,   JMAX+1 ), Fv( IMAX,   JMAX+1 ) )
-    eta = 0.   
-#endif   
+    ! Matrices
+    ALLOCATE( eta ( IMAX,   JMAX   ) )
+    ALLOCATE( rhs ( IMAX,   JMAX   ) )    
+    ALLOCATE( u   ( IMAX+1, JMAX   ) )
+    ALLOCATE( Fu  ( IMAX+1, JMAX   ) )
+    ALLOCATE( bu  ( IMAX+1, JMAX   ) )
+    ALLOCATE( Hu  ( IMAX+1, JMAX   ) )
+    ALLOCATE( v   ( IMAX,   JMAX+1 ) )
+    ALLOCATE( Fv  ( IMAX,   JMAX+1 ) )
+    ALLOCATE( bv  ( IMAX,   JMAX+1 ) )
+    ALLOCATE( Hv  ( IMAX,   JMAX+1 ) )
+    ! Initialize matrices
+    rhs = 0.
+    eta = 0.  
+    u   = 0.
+    Fu  = 0.
+    bu  = 0.
+    Hu  = 0.
+    v   = 0.
+    Fv  = 0.
+    bv  = 0.
+    Hv  = 0.
+#endif
     !==================================================================================================!
     ! 1) Computational domain 
     !==================================================================================================!
     IF(MPI%myrank.EQ.0) THEN
-      WRITE(*,'(a)') '  Building computational domain... '
+        WRITE(*,'(a)') '  Building computational domain... '
     ENDIF 
     ! Domain on the x axys
     dx    = (xR - xL) / REAL(IMAX)
@@ -506,14 +538,12 @@ PROGRAM FS2D
     dy    = (yU - yD) / REAL(IMAX)
     dy2   = dy**2
     y(1)  = yD
-    !==================================================================================================!
-    ! We decided to use two separates dimensions, IMAX and JMAX,
-    ! for x and y coords, to offer more flexibility
-    !==================================================================================================!   
+    ! We decided to use two separate dimensions, IMAX and JMAX, for x and y coords  
     DO i = 1, IMAX
         x(i+1) = x(i) + dx
         xb(i)  = x(i) + dx/2.
-    ENDDO 
+    ENDDO
+    !
     DO j = 1, JMAX
         y(j+1) = y(j) + dy
         yb(j)  = y(j) + dy/2.
@@ -522,18 +552,14 @@ PROGRAM FS2D
     ! 2) Initial condition
     !==================================================================================================!
      IF(MPI%myrank.EQ.0) THEN
-      WRITE(*,'(a)') '  Assigning initial condition... '
+        WRITE(*,'(a)') '  Assigning initial condition... '
      ENDIF   
     !==================================================================================================!
     ! 2.1) Free surface elevation (barycenters)
     !==================================================================================================!
-#ifdef PARALLEL   
-    !
-    ! We do some useful work here, e.g. update all internal elements of the domain, since we do non-blocking communication ! 
-    !
+#ifdef PARALLEL
     ! The main finite difference scheme is IDENTICAL to the serial code ! 
-    ! This is the simplicify and the beauty of MPI :-) 
-    !
+    ! This is the simplicify and the beauty of MPI :-)
     DO i = MPI%istart, MPI%iend
         DO j = MPI%jstart, MPI%jend
             !===========================================================================================!
@@ -598,7 +624,8 @@ PROGRAM FS2D
         ! Initialize first and last columns for Hu
         Hu( MPI%istart, j ) = MAX( 0.0, bu( MPI%istart, j ) + eta( MPI%istart, j ) )
         Hu( MPI%iend+1, j ) = MAX( 0.0, bu( MPI%iend+1, j ) + eta( MPI%iend,   j ) )
-    ENDDO    
+    ENDDO
+    ! I don't need this anymore (maybe?)
     DO i = MPI%istart, MPI%iend
         ! Initialize first and last rows for Hv
         Hv( i, MPI%jstart ) = MAX( 0.0, bv( i, MPI%jstart ) + eta( i, MPI%jstart ) )
@@ -610,6 +637,7 @@ PROGRAM FS2D
         ENDDO
     ENDDO
     DO i = MPI%istart, MPI%iend
+        !DO j = MPI%jstart, MPI%jend+1
         DO j = MPI%jstart+1, MPI%jend
             Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
         ENDDO
@@ -641,7 +669,7 @@ PROGRAM FS2D
     !==================================================================================================!
 #ifdef PARALLEL
     ! Collect all the data from each MPI subdomain
-    ! Collect from eta into eta1
+    ! Collect from eta into eta1, from u into u1 and from v into v1
     DO i = MPI%istart, MPI%iend
         CALL MPI_ALLGATHER( eta( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, eta1(i,:), &
                             MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
@@ -654,21 +682,13 @@ PROGRAM FS2D
     ! u has one more line
     CALL MPI_ALLGATHER( u( MPI%iend+1, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(MPI%iend+1,:), &
                             MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
-    ! Finally, update eta, u and v
-    eta = eta1
-    u   = u1
-    v   = v1
-    !==================================================================================================!
+#endif
+    ! Actually plotting the results (if I am in the main thread)
     IF(MPI%myrank.EQ.0) THEN    
         WRITE(*,'(a)') ' | '
         WRITE(*,'(a)') ' | Plotting initial condition ' 
         CALL DataOutput(0, 1, IMAX, 1, JMAX, MPI%myrank)
     ENDIF
-#else    
-    WRITE(*,'(a)') ' | '
-    WRITE(*,'(a)') ' | Plotting initial condition ' 
-    CALL DataOutput(0, MPI%istart, MPI%iend, MPI%jstart, MPI%jend, 1)
-#endif
     tio = tio + dtio    
     !==================================================================================================!
     ! 3) Computation: main loop in time
@@ -690,8 +710,17 @@ PROGRAM FS2D
             EXIT    
         ENDIF
         !==============================================================================================!
-        umax = MAXVAL( ABS(u) )             ! Semi-implicit time step
-        dt   = MIN( dt_fix, CFL / ( ( umax + 1e-14 ) / dx + 2. * nu / dx2 ) )
+#ifdef PARALLEL        
+        ! Note that at the following line we need the full u and v! So we use u1 and v1 instead
+        ! POSSIBLE PROBLE: they are not updated every cycle...
+        umax = MAXVAL( ABS(u1) )    ! Semi-implicit time step
+        vmax = MAXVAL( ABS(v1) )    ! Semi-implicit time step
+#else
+        umax = MAXVAL( ABS(u) )     ! Semi-implicit time step
+        vmax = MAXVAL( ABS(v) )     ! Semi-implicit time step
+#endif        
+        dt   = MIN( dt_fix, CFL / ( ( umax + 1e-14 ) / dx + 2. * nu / dx2 ), &
+                            CFL / ( ( vmax + 1e-14 ) / dy + 2. * nu / dy2 ) )
         dt2   = dt**2
         IF( ( time + dt ).GT.tend ) THEN
             dt  = tend - time   
@@ -704,11 +733,46 @@ PROGRAM FS2D
         ! 3.2) Compute the operator Fu
         !==============================================================================================!
 #ifdef PARALLEL
-        ! First row and last row initialized to zeros
+        ! Exchange information about u boundaries with each neighbout CPU
+        MsgLength = IMAX+1
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! Send your leftmost state to your left neighbor CPU 
+        send_messageL = u(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! Send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = u(:,MPI%jend)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! Obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! Obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)               
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        u(:, MPI%jstart-1) = recv_messageL
+        u(:, MPI%jend+1)   = recv_messageR
+        !
+        ! Compute the operator Fu also using the information from other cpus
+        !
         Fu( MPI%istart, : ) = u( MPI%istart, : )
         Fu( MPI%iend+1, : ) = u( MPI%iend+1, : )
         DO i = MPI%istart + 1, MPI%iend
-            DO j = MPI%jstart, MPI%jend
+            ! jstart-1 and jend+1 contain the boundary values!
+            DO j = MPI%jstart-1, MPI%jend+1
+            !DO j = MPI%jstart, MPI%jend
                 au = ABS( u(i,j) )
                 ! Explicit upwind
                 ! In our case, nu = 0
@@ -742,16 +806,55 @@ PROGRAM FS2D
         ! 3.3) Compute the operator Fv
         !==============================================================================================!
 #ifdef PARALLEL
-        ! First column and last column initialized to zeros
-        Fv( :, MPI%jstart ) = v( :, MPI%jstart )
-        Fv( :, MPI%jend+1 ) = v( :, MPI%jend+1 )
+        !
+        ! The only real MPI part is here: exchange of the boundary values between CPUs 
+        !
+        MsgLength = IMAX
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! send your leftmost state to your left neighbor CPU 
+        send_messageL = v(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = v(:,MPI%jend+1)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)               
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        v(:, MPI%jstart-1) = recv_messageL
+        v(:, MPI%jend+2)   = recv_messageR
+        ! First column and last column initialized to zeros (maybe I don't need this?)
+        !Fv( :, MPI%jstart ) = v( :, MPI%jstart )
+        !Fv( :, MPI%jend+1 ) = v( :, MPI%jend+1 )
         DO i = MPI%istart, MPI%iend
-            DO j = MPI%jstart+1, MPI%jend
+            ! nb: jstart -1 and jend+1 are defined, and it it imported from left cpu
+            DO j = MPI%jstart, MPI%jend+1
+            !DO j = MPI%jstart+1, MPI%jend
                 av = ABS( v(i,j) )
                 ! Explicit upwind
-                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+                !Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                !        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                !        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+                ! In our case, nu = 0
+                Fv(i,j) = ( 1. - dt * ( av/dx ) ) * v(i,j)     &
+                        + dt * ( (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( (av+v(i,j))/(2.*dy) ) * v(i,j-1)
             ENDDO
         ENDDO
 #else
@@ -762,9 +865,13 @@ PROGRAM FS2D
             DO j = 2, JMAX
                 av = ABS( v(i,j) )
                 ! Explicit upwind
-                Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
-                        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
-                        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+                !Fv(i,j) = ( 1. - dt * ( av/dx + 2.*nu/dy2 ) ) * v(i,j)     &
+                !        + dt * ( nu/dy2 + (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                !        + dt * ( nu/dy2 + (av+v(i,j))/(2.*dy) ) * v(i,j-1)
+                ! In our case, nu = 0
+                Fv(i,j) = ( 1. - dt * ( av/dx ) ) * v(i,j)     &
+                        + dt * ( (av-v(i,j))/(2.*dy) ) * v(i,j+1) &
+                        + dt * ( (av+v(i,j))/(2.*dy) ) * v(i,j-1)
             ENDDO
         ENDDO
 #endif
@@ -773,33 +880,216 @@ PROGRAM FS2D
         !==============================================================================================!
         ! CONJUGATE GRADIENT METHOD
         !==============================================================================================!
-        ! nb: even rhs is distributed among processors as eta (same dimensions), while Hu and Hv are not
+#ifdef PARALLEL
+        !
+        ! Exchange of eta boundary values between CPUs 
+        !
+        MsgLength = IMAX
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! send your leftmost state to your left neighbor CPU 
+        send_messageL = eta(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = eta(:,MPI%jend)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)
+        ! I can do something usefull in the meantime
+        ! Calculate rhs
         DO i = MPI%istart, MPI%iend 
             DO j = MPI%jstart, MPI%jend
                 rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
                                     - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
             ENDDO
         ENDDO
-        CALL CG(IMAX, JMAX, eta, rhs , MPI%istart, MPI%iend, MPI%jstart, MPI%jend, MPI%myrank)
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        eta(:, MPI%jstart-1) = recv_messageL
+        eta(:, MPI%jend+1)   = recv_messageR
+        !
+        !
+        ! Exchange of the rhs boundary values between CPUs 
+        !
+        MsgLength = IMAX
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! Send your leftmost state to your left neighbor CPU 
+        send_messageL = rhs(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! Send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = rhs(:,MPI%jend)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! Obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! Oobviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg, send_request, send_status_list, MPI%ierr)
+        CALL MPI_WAITALL(nMsg, recv_request, recv_status_list, MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        rhs(:, MPI%jstart-1) = recv_messageL
+        rhs(:, MPI%jend+1)   = recv_messageR
+        !
+        ! For CG we also need Hu and Hv boundaries to be updated
+        !
+        ! Exchange of Hu boundary values between CPUs 
+        !
+        MsgLength = IMAX+1
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! Send your leftmost state to your left neighbor CPU 
+        send_messageL = Hu(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! Send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = Hu(:,MPI%jend)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! Obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! Obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg, send_request, send_status_list, MPI%ierr)
+        CALL MPI_WAITALL(nMsg, recv_request, recv_status_list, MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        Hu(:, MPI%jstart-1) = recv_messageL
+        Hu(:, MPI%jend+1)   = recv_messageR
+        !
+        ! Exchange of Hv boundary values between CPUs 
+        !
+        MsgLength = IMAX
+        RCPU = MPI%myrank + 1 
+        IF(RCPU.GT.MPI%nCPU-1) THEN
+            RCPU = 0
+        ENDIF
+        LCPU = MPI%myrank - 1 
+        IF(LCPU.LT.0) THEN 
+            LCPU = MPI%nCPU - 1 
+        ENDIF 
+        ! Send your leftmost state to your left neighbor CPU 
+        send_messageL = Hv(:,MPI%jstart) 
+        CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        ! Send your rightmost state to your right neighbor CPU => post a send request  
+        send_messageR = Hv(:,MPI%jend+1)
+        CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        ! Obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        ! Obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)
+        !
+        ! Wait until all communication has finished
+        ! 
+        nMsg = 2 
+        CALL MPI_WAITALL(nMsg,send_request,send_status_list,MPI%ierr)
+        CALL MPI_WAITALL(nMsg,recv_request,recv_status_list,MPI%ierr)
+        !
+        ! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !
+        Hv(:, MPI%jstart-1) = recv_messageL
+        Hv(:, MPI%jend+2)   = recv_messageR
+        !
+        ! We call CG also on the boundary values (i.e. the boundaries of neighbor cpus)
+        CALL CG(IMAX, JMAX+2, eta, rhs, MPI%istart, MPI%iend, MPI%jstart-1, MPI%jend+1, MPI%myrank)
+        !!
+        !! We import eta boundary values to update Fu and Fv
+        !!
+        !! Exchange of eta boundary values between CPUs 
+        !!
+        !MsgLength = IMAX
+        !RCPU = MPI%myrank + 1 
+        !IF(RCPU.GT.MPI%nCPU-1) THEN
+        !    RCPU = 0
+        !ENDIF
+        !LCPU = MPI%myrank - 1 
+        !IF(LCPU.LT.0) THEN 
+        !    LCPU = MPI%nCPU - 1 
+        !ENDIF 
+        !! Send your leftmost state to your left neighbor CPU 
+        !send_messageL = eta(:,MPI%jstart) 
+        !CALL MPI_ISEND(send_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 1, MPI_COMM_WORLD, send_request(1), MPI%iErr)
+        !! Send your rightmost state to your right neighbor CPU => post a send request  
+        !send_messageR = eta(:,MPI%jend)
+        !CALL MPI_ISEND(send_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 2, MPI_COMM_WORLD, send_request(2), MPI%iErr)
+        !! Obviously, the right neighbor must expect this message, so tell him to go regularly to the post office...  
+        !CALL MPI_IRECV(recv_messageL, MsgLength, MPI%AUTO_REAL, LCPU, 2, MPI_COMM_WORLD, recv_request(1), MPI%iErr)            
+        !! Obviously, the left neighbor must expect this message, so tell him to go regularly to the post office...  
+        !CALL MPI_IRECV(recv_messageR, MsgLength, MPI%AUTO_REAL, RCPU, 1, MPI_COMM_WORLD, recv_request(2), MPI%iErr)
+        !!
+        !! Wait until all communication has finished
+        !! 
+        !nMsg = 2 
+        !CALL MPI_WAITALL(nMsg, send_request,send_status_list, MPI%ierr)
+        !CALL MPI_WAITALL(nMsg, recv_request,recv_status_list, MPI%ierr)
+        !!
+        !! Now we are sure all the messages have been sent around, so let's put the data of the messages where it actually belongs... 
+        !!
+        !eta(:, MPI%jstart-1) = recv_messageL
+        !eta(:, MPI%jend+1)   = recv_messageR
+#else
+        DO i = 1, IMAX
+            DO j = 1, JMAX
+                rhs(i,j) = eta(i,j) - dt/dx * ( Hu(i+1,j)*Fu(i+1,j) - Hu(i,j)*Fu(i,j)) &
+                                    - dt/dy * ( Hv(i,j+1)*Fv(i,j+1) - Hv(i,j)*Fv(i,j))
+            ENDDO
+        ENDDO
+        CALL CG(IMAX, JMAX, eta, rhs, istart, iend, jstart, jend, myrank)
+#endif        
         !==============================================================================================!
         ! 3.5) Update the velocity (momentum equation)
         !==============================================================================================!
         ct = g*dt/dx    ! Temporary coefficient for x
         cs = g*dt/dy    ! Temporary coefficient for y
         !==============================================================================================!
-#ifdef PARALLEL
+#ifdef PARALLEL        
         u( MPI%istart, MPI%jstart:MPI%jend ) = Fu( MPI%istart, MPI%jstart:MPI%jend ) 
         u( MPI%iend+1, MPI%jstart:MPI%jend ) = Fu( MPI%iend+1, MPI%jstart:MPI%jend )
+        !DO i = MPI%istart+1, MPI%iend
         DO i = MPI%istart+1, MPI%iend
-            DO j = MPI%jstart, MPI%jend
+            DO j = MPI%jstart, MPI%jend+1
                 u(i,j) = Fu(i,j) - ct * ( eta(i,j) - eta(i-1,j) )
             ENDDO
         ENDDO
         !==============================================================================================!
-        v( MPI%istart:MPI%iend, MPI%jstart ) = Fv( MPI%istart:MPI%iend, MPI%jstart )
-        v( MPI%istart:MPI%iend, MPI%jend+1 ) = Fv( MPI%istart:MPI%iend, MPI%jend+1 )
         DO i = MPI%istart, MPI%iend
-            DO j = MPI%jstart+1, MPI%jend
+            DO j = MPI%jstart, MPI%jend+1
+                ! nb: here I use jstart-1 e jstart+1 of eta, imported from near cpus
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO
@@ -819,28 +1109,30 @@ PROGRAM FS2D
                 v(i,j) = Fv(i,j) - cs * ( eta(i,j) - eta(i,j-1) )
             ENDDO
         ENDDO
-#endif
-        !==============================================================================================!
-        ! 3.6) Update total water depth
-        !==============================================================================================!
+#endif    
+    !==================================================================================================!
+    ! Update total water depth
+    !==================================================================================================!
 #ifdef PARALLEL
         DO j = MPI%jstart, MPI%jend
             ! Initialize first and last columns for Hu
             Hu( MPI%istart, j ) = MAX( 0.0, bu( MPI%istart, j ) + eta( MPI%istart, j ) )
             Hu( MPI%iend+1, j ) = MAX( 0.0, bu( MPI%iend+1, j ) + eta( MPI%iend,   j ) )
         ENDDO    
-        DO i = MPI%istart, MPI%iend
-            ! Initialize first and last rows for Hv
-            Hv( i, MPI%jstart ) = MAX( 0.0, bv( i, MPI%jstart ) + eta( i, MPI%jstart ) )
-            Hv( i, MPI%jend+1 ) = MAX( 0.0, bv( i, MPI%jend+1 ) + eta( i, MPI%jend   ) )
-        ENDDO
+        ! nb: the missing information is requested to the neighbor cpus
+        !DO i = MPI%istart, MPI%iend
+        !    ! Initialize first and last rows for Hv
+        !    Hv( i, MPI%jstart ) = MAX( 0.0, bv( i, MPI%jstart ) + eta( i, MPI%jstart ) )
+        !    Hv( i, MPI%jend+1 ) = MAX( 0.0, bv( i, MPI%jend+1 ) + eta( i, MPI%jend   ) )
+        !ENDDO
         DO i = MPI%istart+1, MPI%iend
             DO j = MPI%jstart, MPI%jend
                 Hu( i , j ) = MAXVAL( (/ 0.0, bu( i, j ) + eta( i - 1, j ), bu( i, j )+ eta( i, j ) /) )
             ENDDO
         ENDDO
         DO i = MPI%istart, MPI%iend
-            DO j = MPI%jstart+1, MPI%jend
+            DO j = MPI%jstart, MPI%jend+1
+            !DO j = MPI%jstart+1, MPI%jend
                 Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
             ENDDO
         ENDDO
@@ -849,7 +1141,7 @@ PROGRAM FS2D
             ! Initialize first and last columns for Hu
             Hu( 1,      j ) = MAX( 0.0, bu( 1,      j ) + eta( 1,    j ) )
             Hu( IMAX+1, j ) = MAX( 0.0, bu( IMAX+1, j ) + eta( IMAX, j ) )
-        ENDDO
+        ENDDO    
         DO i = 1, IMAX
             ! Initialize first and last rows for Hv
             Hv( i, 1      ) = MAX( 0.0, bv( i, 1      ) + eta( i, 1    ) )
@@ -865,38 +1157,41 @@ PROGRAM FS2D
                 Hv( i , j ) = MAXVAL( (/ 0.0, bv( i, j ) + eta( i, j - 1 ), bv( i, j )+ eta( i, j ) /) )
             ENDDO
         ENDDO
-#endif        
-        !==========================================================================================!
-        time = time + dt  ! Update time
-        !==========================================================================================!
+#endif
+        time = time + dt  ! Update time        
+        !==================================================================================================!
         ! 3.7) Eventually plot the results        
 #ifdef PARALLEL
         IF(ABS(time-tio).LT.1e-12) THEN
             ! Collect all the data from each MPI subdomain
             ! Collect from eta into eta1
             DO i = MPI%istart, MPI%iend
-                CALL MPI_ALLGATHER( eta( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, eta1(i, MPI%jstart:MPI%jend), &
+                CALL MPI_ALLGATHER( eta( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, eta1(i, :), &
                                     MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
-                CALL MPI_ALLGATHER( u( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(i, MPI%jstart:MPI%jend), &
+                CALL MPI_ALLGATHER( u( i, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(i, :), &
                                     MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
                 ! v has one more column
-                CALL MPI_ALLGATHER( v( i, MPI%jstart:MPI%jend+1 ), MPI%nElem+1, MPI%AUTO_REAL, v1(i,MPI%jstart:MPI%jend+1), &
+                CALL MPI_ALLGATHER( v( i, MPI%jstart:MPI%jend+1 ), MPI%nElem+1, MPI%AUTO_REAL, v1(i,:), &
                                     MPI%nElem+1, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
             ENDDO
             ! u has one more line
-            CALL MPI_ALLGATHER( u( MPI%iend+1, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(MPI%iend+1, MPI%jstart:MPI%jend), &
+            CALL MPI_ALLGATHER( u( MPI%iend+1, MPI%jstart:MPI%jend ), MPI%nElem, MPI%AUTO_REAL, u1(MPI%iend+1, :), &
                                     MPI%nElem, MPI%AUTO_REAL, MPI_COMM_WORLD, MPI%iErr)
             ! Finally, update eta, u and v
-            eta = eta1
-            u   = u1
-            v   = v1
+            !eta = eta1
+            !u   = u1
+            !v   = v1
+            !eta ( :,MPI%jstart:MPI%jend   ) = eta1 ( :,MPI%jstart:MPI%jend   )
+            !u   ( :,MPI%jstart:MPI%jend   ) = u1   ( :,MPI%jstart:MPI%jend   )
+            !v   ( :,MPI%jstart:MPI%jend+1 ) = v1   ( :,MPI%jstart:MPI%jend+1 )
             IF (MPI%myrank.EQ.0) THEN
                 ! Only root thread calls dataoutput
                 WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
                 CALL DataOutput(n, 1, IMAX, 1, JMAX, MPI%myrank)
             ENDIF
             tio = tio + dtio
-        ENDIF    
+            !PAUSE
+        ENDIF 
 #else    
         IF(ABS(time-tio).LT.1e-12) THEN
             WRITE(*,'(a,f15.7)') ' |   plotting data output at time ', time
@@ -943,7 +1238,7 @@ SUBROUTINE matop2D(Ap, p, N, M, istart, iend, jstart, jend)
     IMPLICIT NONE
     !==================================================================================================!
     INTEGER             :: N, M 
-    REAL                :: Ap(N,M), p(N,M)
+    REAL                :: Ap(iend,jstart:jend), p(iend,jstart:jend)
     !==================================================================================================!
     INTEGER             :: i, j
     INTEGER, INTENT(IN) :: istart, iend, jstart, jend

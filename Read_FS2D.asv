@@ -2,7 +2,7 @@
 % Clear workspace, close windows, clear cli
 clear all; close all; clc;
 % Open file 1
-FileID = fopen('Gaussian_test-00000008-0000.dat');
+FileID = fopen('Gaussian_test-00000113-0000.dat');
 % Read number of cells on x axys
 IMAX = fscanf(FileID,'%d',1);
 % Read number of cells on y axys1

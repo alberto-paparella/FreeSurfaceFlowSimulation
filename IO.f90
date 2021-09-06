@@ -55,21 +55,21 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     ! For each x eta coordinate, i print JMAX values for y eta coordinate
     DO i = istart, iend
         DO j = jstart, jend   
-            WRITE(DataUnit,*) eta(i,j)
+            WRITE(DataUnit,*) eta1(i,j)
         ENDDO
     ENDDO    
     ! Velocity (interpolation at barycenters)
     ! Velocity on the x axys
     DO i = istart, iend
         DO j = jstart, jend   
-            ub = 0.5 * ( u(i,j) + u(i+1,j) )  
+            ub = 0.5 * ( u1(i,j) + u1(i+1,j) )  
             WRITE(DataUnit,*) ub
         ENDDO
     ENDDO
     ! Velocity on the y axys
     DO i = istart, iend
         DO j = jstart, jend   
-            vb = 0.5 * ( v(i,j) + v(i,j+1) )  
+            vb = 0.5 * ( v1(i,j) + v1(i,j+1) )  
             WRITE(DataUnit,*) vb
         ENDDO
     ENDDO   
@@ -83,9 +83,9 @@ SUBROUTINE DataOutput(timestep,istart,iend,jstart,jend,myrank)
     !==================================================================================================!
     DO i = 1, IMAX
       DO j = 1, JMAX
-          ub = 0.5 * ( u(i,j) + u(i+1,j) )  ! Interpolate x velocity at barycenters
-          vb = 0.5 * ( u(i,j) + u(i,j+1) )  ! Interpolate y velocity at barycenters
-          WRITE(DataUnit,*) xb(i), yb(j), eta(i,j), ub, vb
+          ub = 0.5 * ( u1(i,j) + u1(i+1,j) )  ! Interpolate x velocity at barycenters
+          vb = 0.5 * ( v1(i,j) + v1(i,j+1) )  ! Interpolate y velocity at barycenters
+          WRITE(DataUnit,*) xb(i), yb(j), eta1(i,j), ub, vb
       ENDDO
     ENDDO  
 #endif    

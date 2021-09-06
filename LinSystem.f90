@@ -19,19 +19,21 @@ SUBROUTINE CG(N, M, x, b, istart, iend, jstart, jend, myrank)
     !==================================================================================================!
     INTEGER             :: i
     INTEGER             :: N, M     ! Size of the linear system
-    REAL                :: x(N,M)   ! Solution (in matricial form)
-    REAL                :: b(N,M)   ! Right hand side (in matricial form)
+    !REAL                :: x(N,M)   ! Solution (in matricial form)
+    !REAL                :: b(N,M)   ! Right hand side (in matricial form)
+    REAL                :: x(iend,jstart:jend)   ! Solution (in matricial form)
+    REAL                :: b(iend,jstart:jend)   ! Right hand side (in matricial form)
     !==================================================================================================!
     INTEGER             :: k, KMAX
     INTEGER, INTENT(IN) :: istart, iend, jstart, jend, myrank
-    REAL                :: Ax(N,M), Ax1(N,M), Ap(N,M)
-    REAL                :: r(N,M), p(N,M)
+    REAL                :: Ax(iend,jstart:jend), Ap(iend,jstart:jend)
+    REAL                :: r(iend,jstart:jend), p(iend,jstart:jend)
     REAL                :: pAp, lambda
     REAL                :: alphak, alpha
     REAL, PARAMETER     :: tol = 1e-12      ! Tolerance for convergence  
     !==================================================================================================!
     x = b                 ! Initial guess
-    CALL matop2D(Ax, x, N, M, istart, iend, jstart, jend)  ! It is implemented into the main file
+    CALL matop2D(Ax, x, iend, jend-jstart, istart, iend, jstart, jend)  ! It is implemented into the main file
     r = b - Ax            ! Residual   
     p = r                 ! Search direction = max. descent   
     alphak = SUM(r*r)
@@ -45,7 +47,7 @@ SUBROUTINE CG(N, M, x, b, istart, iend, jstart, jend, myrank)
             RETURN
         ENDIF
         !==============================================================================================!
-        CALL matop2D(Ap, p, N, M, istart, iend, jstart, jend)
+        CALL matop2D(Ap, p, iend, jend-jstart, istart, iend, jstart, jend)
         pAp    = SUM(p*Ap)        
         lambda = alphak / pAp
         x      = x + lambda*p
