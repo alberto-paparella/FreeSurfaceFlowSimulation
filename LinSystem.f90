@@ -14,13 +14,10 @@
 ! LinSystem.f90
 ! In this file we implement the routine for the coniugate gradient method
 !======================================================================================================!
-SUBROUTINE CG(N, M, x, b, istart, iend, jstart, jend, myrank)
+SUBROUTINE CG(x, b, istart, iend, jstart, jend, myrank)
     IMPLICIT NONE
     !==================================================================================================!
     INTEGER             :: i
-    INTEGER             :: N, M     ! Size of the linear system
-    !REAL                :: x(N,M)   ! Solution (in matricial form)
-    !REAL                :: b(N,M)   ! Right hand side (in matricial form)
     REAL                :: x(iend,jstart:jend)   ! Solution (in matricial form)
     REAL                :: b(iend,jstart:jend)   ! Right hand side (in matricial form)
     !==================================================================================================!
@@ -33,12 +30,12 @@ SUBROUTINE CG(N, M, x, b, istart, iend, jstart, jend, myrank)
     REAL, PARAMETER     :: tol = 1e-12      ! Tolerance for convergence  
     !==================================================================================================!
     x = b                 ! Initial guess
-    CALL matop2D(Ax, x, iend, jend-jstart, istart, iend, jstart, jend)  ! It is implemented into the main file
+    CALL matop2D(Ax, x, istart, iend, jstart, jend)  ! It is implemented into the main file
     r = b - Ax            ! Residual   
     p = r                 ! Search direction = max. descent   
     alphak = SUM(r*r)
     !==================================================================================================!
-    KMAX = N*(jend-jstart)
+    KMAX = iend*(jend-jstart)
     !==================================================================================================!
     DO k = 1, KMAX
         !==============================================================================================!
@@ -47,7 +44,7 @@ SUBROUTINE CG(N, M, x, b, istart, iend, jstart, jend, myrank)
             RETURN
         ENDIF
         !==============================================================================================!
-        CALL matop2D(Ap, p, iend, jend-jstart, istart, iend, jstart, jend)
+        CALL matop2D(Ap, p, istart, iend, jstart, jend)
         pAp    = SUM(p*Ap)        
         lambda = alphak / pAp
         x      = x + lambda*p
