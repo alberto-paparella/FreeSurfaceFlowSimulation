@@ -2,7 +2,7 @@
 ! Progetto II.
 ! Equazione dei flussi a superficie libera su griglie strutturate.
 !------------------------------------------------------------------!
-! Università di Ferrara - Dipartimento di Matematica e Informatica.
+! Universita' di Ferrara - Dipartimento di Matematica e Informatica.
 ! Corso di Algoritmi per il Calcolo Parallelo.
 ! Prof. Walter Boscheri
 ! A.A. 2020/2021
