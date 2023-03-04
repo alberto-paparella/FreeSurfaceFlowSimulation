@@ -17,7 +17,6 @@ Schema is based on a semi-implicit temporal discretization and a finite differen
 
 Total water depth at the interface, also defined as draught, is expressed as:
 - $H_{i+\frac{1}{2},j}^{n}=\max(0,h_{i+\frac{1}{2},j}^{n}+\eta_{i,j}^{n};h_{i+\frac{1}{2},j}^{n}+\eta_{i+1,j}^{n})$
-
 - $H_{i,j+\frac{1}{2}}^{n}\max(0,h_{i,j+\frac{1}{2}}^{n}+\eta_{i,j}^{n};h_{i,j+\frac{1}{2}}^{n}+\eta_{i,j+1})$
 
 Convective terms $Fu_{i+\frac{1}{2},j}^{n}$ and $Fv_{i,j+\frac{1}{2}}^{n}$ have been evaluated using an explicit upwind method.
@@ -35,7 +34,7 @@ The previous equations can be evaluated using the following pentadiagonal linear
 - $-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i-\frac{1}{2},j}^{n}\eta_{i-1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j-\frac{1}{2}}^{n}\eta_{i,j-1}^{n+1}+$\
 $[1+g\frac{\Delta t^{2}}{\Delta x^{2}}(H_{i+\frac{1}{2},j}^{n}+H_{i-\frac{1}{2},j}^{n})+g\frac{\Delta t^{2}}{\Delta y^{2}}(H_{i,j+\frac{1}{2}}^{n}+H_{i,j-\frac{1}{2}}^{n})]\eta_{i,j}^{n+1}$\
 $-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i+\frac{1}{2},j}^{n}\eta_{i+1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j+\frac{1}{2}}^{n}\eta_{i,j+1}^{n+1} = b_{i}^{n}$
-- $b_{i}^{n} = \eta_{i,j}^{n} -  \frac{\Delta t^{2}}{\Delta x^{2}}[(HFu)_{i+\frac{1}{2},j}-(HFu)_{i-\frac{1}{2},j}^{n}] -  \frac{\Delta t^{2}}{\Delta y^{2}}[(HFv)_{i,j+\frac{1}{2}}-(HFv)_{i,j+\frac{1}{2}}^{n}]$
+- $b_{i}^{n}=\eta_{i,j}^{n}-\frac{\Delta t^{2}}{\Delta x^{2}}[(HFu)_{i+\frac{1}{2},j}-(HFu)_{i-\frac{1}{2},j}^{n}]-\frac{\Delta t^{2}}{\Delta y^{2}}[(HFv)_{i,j+\frac{1}{2}}-(HFv)_{i,j+\frac{1}{2}}^{n}]$
 
 ## MPI parallelization
 
