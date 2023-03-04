@@ -47,15 +47,15 @@ Results given a $120\times 120$ matrix. Simulation has been executed using 2 cpu
 
 $t=0.00$
 
-![t=0.00]()
+![t=0.00](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/test_2_cpu_120_120_matrix_0000_0000.PNG?raw=true)
 
 $t=0.05$
 
-![t=0.05]()
+![t=0.05](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/test_2_cpu_120_120_matrix_0003_0000.PNG?raw=true)
 
 $t=0.10$
 
-![t=0.10]()
+![t=0.10](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/test_2_cpu_120_120_matrix_0008_0000.PNG?raw=true)
 
 # Results
 
@@ -82,7 +82,7 @@ Speed-up is calculated as:
 
 where $T_{(p=1)}$ is the average computation time using **1 single CPU** (serial execution) and $T(p)$ is the average computation time using **p CPUs**.
 
-![speedup]()
+![speedup](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/speedup.png?raw=true)
 
 ## Efficiency
 
@@ -91,7 +91,7 @@ Efficiency is calculated as:
 
 i.e., the ratio between the speed-up and the relative number of used CPUs.
 
-![efficiency]()
+![efficiency](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/efficiency.png?raw=true)
 
 ## Kuck function
 
@@ -100,4 +100,4 @@ Kuck function is evaluated as:
 
 The number of CPUs **p\*** such that $K(p)$ is at its maximum peek is the best tradeoff between speed-up and efficiency.
 
-![kuck]()
+![kuck](https://github.com/alberto-paparella/FreeSurfaceFlowSimulation/blob/main/images/kuck.png?raw=true)
