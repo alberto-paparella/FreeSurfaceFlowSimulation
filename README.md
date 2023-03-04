@@ -32,7 +32,9 @@ The following finite differences discretization has been considered for the equa
 
 The previous equations can be evaluated using the following pentadiagonal linear system, which can be solved using the conjugate gradient method:
 
-- $-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i-\frac{1}{2},j}^{n}\eta_{i-1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j-\frac{1}{2}}^{n}\eta_{i,j-1}^{n+1}+[1+g\frac{\Delta t^{2}}{\Delta x^{2}}(H_{i+\frac{1}{2},j}^{n}+H_{i-\frac{1}{2},j}^{n})+g\frac{\Delta t^{2}}{\Delta y^{2}}(H_{i,j+\frac{1}{2}}^{n}+H_{i,j-\frac{1}{2}}^{n})]\eta_{i,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i+\frac{1}{2},j}^{n}\eta_{i+1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j+\frac{1}{2}}^{n}\eta_{i,j+1}^{n+1} = b_{i}^{n}$
+- $-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i-\frac{1}{2},j}^{n}\eta_{i-1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j-\frac{1}{2}}^{n}\eta_{i,j-1}^{n+1}+$\
+$[1+g\frac{\Delta t^{2}}{\Delta x^{2}}(H_{i+\frac{1}{2},j}^{n}+H_{i-\frac{1}{2},j}^{n})+g\frac{\Delta t^{2}}{\Delta y^{2}}(H_{i,j+\frac{1}{2}}^{n}+H_{i,j-\frac{1}{2}}^{n})]\eta_{i,j}^{n+1}$\
+$-g\frac{\Delta t^{2}}{\Delta x^{2}}H_{i+\frac{1}{2},j}^{n}\eta_{i+1,j}^{n+1}-g\frac{\Delta t^{2}}{\Delta y^{2}}H_{i,j+\frac{1}{2}}^{n}\eta_{i,j+1}^{n+1} = b_{i}^{n}$
 - $b_{i}^{n} = \eta_{i,j}^{n} -  \frac{\Delta t^{2}}{\Delta x^{2}}[(HFu)_{i+\frac{1}{2},j}-(HFu)_{i-\frac{1}{2},j}^{n}] -  \frac{\Delta t^{2}}{\Delta y^{2}}[(HFv)_{i,j+\frac{1}{2}}-(HFv)_{i,j+\frac{1}{2}}^{n}]$
 
 ## MPI parallelization
